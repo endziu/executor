@@ -26,11 +26,16 @@ The test suite is organized by functionality:
 - `ExecutorBalanceTest.t.sol`: Tests for balance queries
 - `ExecutorERC20Test.t.sol`: Tests for ERC20 token operations
 - `ExecutorReceiveTest.t.sol`: Tests for ETH receiving functionality
+- `ExecutorReentrancyTest.t.sol`: Tests for reentrancy protection
 
 ### Helper Contracts (in BaseExecutorTest.t.sol)
 - `Target`: Simple contract for testing function calls
 - `MockERC20`: ERC20 mock with configurable transfer failures
 - `FailingTarget`: Contract that always reverts for error testing
+- `ReentrantAttacker`: Re-enters the Executor from `receive()` and records the revert data
+- `ETHRejectingContract` / `ETHRejectingWithReasonContract`: Reject incoming ETH (without/with reason)
+- `RevertingERC20` / `EmptyRevertERC20`: Tokens whose `transfer` reverts (with/without data)
+- `NoReturnERC20`: Non-standard token whose `transfer` returns no value
 
 ## Development Commands
 
@@ -83,7 +88,7 @@ OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol --rpc-url <RPC_URL> --p
 ## Code Conventions
 
 - **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`)
-- **License**: MIT for main contract, UNLICENSED for tests
+- **License**: MIT for main contract and tests, UNLICENSED for the deploy script
 - **Formatting**: Uses forge fmt (foundry formatter)
 - **Security**: All state-changing functions include reentrancy protection
 - **Access Control**: Owner-only pattern with `onlyOwner` modifier

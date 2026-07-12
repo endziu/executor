@@ -40,3 +40,11 @@ For verbose output:
 ```bash
 forge test -vvv
 ```
+
+### Deployment
+
+The `OWNER` environment variable sets the Executor owner (required):
+
+```bash
+OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
+```
