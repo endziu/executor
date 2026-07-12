@@ -76,8 +76,8 @@ forge coverage
 
 ### Deployment
 ```bash
-# Deploy using script (modify devAddress in script first)
-forge script script/Executor.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
+# OWNER env var sets the Executor owner (required)
+OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
 ```
 
 ## Code Conventions
@@ -94,7 +94,8 @@ forge script script/Executor.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KE
 - The Executor contract can execute arbitrary calls, making owner security critical
 - All external calls are protected by reentrancy guards
 - Bundle execution validates ETH value totals match individual call values
-- Address(0) targets are allowed in bundle execution but skipped
+- Bundle execution is atomic: any failed call or address(0) target reverts the whole bundle
+- Ownership is immutable — key rotation means deploying a new Executor and migrating assets
 - Withdrawal functions include balance checks before transfers
 
 ## Test Constants

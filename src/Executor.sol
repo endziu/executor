@@ -11,13 +11,15 @@ interface IERC20 {
  * @title Executor
  * @notice Smart contract for executing arbitrary calls with access control
  * @dev Implements ownership, reentrancy protection, and asset management
+ * @dev Ownership is immutable by design. To rotate the owner key, deploy a new
+ *      Executor with the new owner and migrate assets via withdrawETH/withdrawERC20.
  */
 contract Executor {
     address public immutable owner;
     bool private transient locked;
 
     event Executed(address indexed target, bytes data, bytes result);
-    event BundleExecuted(address[] indexed targets, bytes[] data, bool[] success);
+    event BundleExecuted(address[] targets, bytes[] data);
     event ETHWithdrawn(uint256 amount, address indexed to);
     event ERC20Withdrawn(address indexed token, uint256 amount, address indexed to);
 
@@ -28,7 +30,7 @@ contract Executor {
     error MismatchedArrays();
     error NoTransactionData();
     error NoTargets();
-    error IncorectEthValue();
+    error IncorrectEthValue();
     error ZeroAddress();
     error ReentrancyGuard();
     error InsufficientBalance();
@@ -89,7 +91,7 @@ contract Executor {
     /**
      * @notice Executes multiple transactions in sequence
      * @dev External calls are made in a loop - ensure sufficient gas is provided
-     * @dev Individual call failures are recorded in results array, not reverted
+     * @dev Reverts the entire bundle if any target is the zero address or any call fails
      * @param targets Array of contract addresses to call
      * @param data Array of call data for each target
      * @param values Array of ETH values for each call
@@ -109,22 +111,16 @@ contract Executor {
         for (uint256 i = 0; i < values.length; ++i) {
             totalValue += values[i];
         }
-        if (totalValue != msg.value) revert IncorectEthValue();
-
-        bool[] memory results = new bool[](targets.length);
+        if (totalValue != msg.value) revert IncorrectEthValue();
 
         for (uint256 i = 0; i < targets.length; ++i) {
-            // Skip if target is address(0)
-            if (targets[i] == address(0)) {
-                results[i] = false;
-                continue;
-            }
+            if (targets[i] == address(0)) revert InvalidTarget();
 
             (bool success,) = targets[i].call{value: values[i]}(data[i]);
-            results[i] = success;
+            if (!success) revert ExecutionFailed(i);
         }
 
-        emit BundleExecuted(targets, data, results);
+        emit BundleExecuted(targets, data);
     }
 
     /**
@@ -152,7 +148,7 @@ contract Executor {
 
     /**
      * @notice Withdraws ERC20 tokens from contract
-     * @dev Reverts if insufficient balance
+     * @dev Reverts if insufficient balance or if token is not a contract
      * @param token ERC20 token contract address
      * @param amount Token amount in smallest unit
      * @param to Recipient address
@@ -160,6 +156,7 @@ contract Executor {
     function withdrawERC20(address token, uint256 amount, address to) external nonReentrant onlyOwner {
         if (token == address(0)) revert ZeroAddress();
         if (to == address(0)) revert ZeroAddress();
+        if (token.code.length == 0) revert InvalidTarget();
 
         IERC20 erc20 = IERC20(token);
         if (erc20.balanceOf(address(this)) < amount) revert InsufficientTokenBalance();

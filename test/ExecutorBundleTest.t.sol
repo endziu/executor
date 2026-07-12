@@ -59,11 +59,8 @@ contract ExecutorBundleTest is BaseExecutorTest {
         values[1] = 0;
 
         vm.prank(OWNER);
-        vm.expectEmit(true, false, false, true);
-        bool[] memory expectedResults = new bool[](2);
-        expectedResults[0] = true;
-        expectedResults[1] = true;
-        emit BundleExecuted(targets, data, expectedResults);
+        vm.expectEmit();
+        emit BundleExecuted(targets, data);
         executor.bundleExecute(targets, data, values);
     }
 
@@ -120,7 +117,7 @@ contract ExecutorBundleTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.deal(OWNER, 0.5 ether);
-        vm.expectRevert(Executor.IncorectEthValue.selector);
+        vm.expectRevert(Executor.IncorrectEthValue.selector);
         executor.bundleExecute{value: 0.5 ether}(targets, data, values);
     }
 
@@ -154,7 +151,7 @@ contract ExecutorBundleTest is BaseExecutorTest {
         assertEq(target1.number(), 42);
     }
 
-    function testBundleExecuteSkipsZeroAddress() public {
+    function testCannotBundleExecuteWithZeroAddressTarget() public {
         address[] memory targets = new address[](3);
         bytes[] memory data = new bytes[](3);
         uint256[] memory values = new uint256[](3);
@@ -170,9 +167,35 @@ contract ExecutorBundleTest is BaseExecutorTest {
         values[2] = 0;
 
         vm.prank(OWNER);
+        vm.expectRevert(Executor.InvalidTarget.selector);
         executor.bundleExecute(targets, data, values);
 
-        assertEq(target1.number(), 42);
-        assertEq(target2.number(), 99);
+        assertEq(target1.number(), 0);
+        assertEq(target2.number(), 0);
+    }
+
+    function testBundleExecuteRevertsWholeBundleOnFailedCall() public {
+        FailingTarget failingTarget = new FailingTarget();
+
+        address[] memory targets = new address[](3);
+        bytes[] memory data = new bytes[](3);
+        uint256[] memory values = new uint256[](3);
+
+        targets[0] = address(target1);
+        targets[1] = address(failingTarget);
+        targets[2] = address(target2);
+        data[0] = abi.encodeWithSelector(target1.setNumber.selector, 42);
+        data[1] = abi.encodeWithSelector(failingTarget.alwaysRevert.selector);
+        data[2] = abi.encodeWithSelector(target2.setNumber.selector, 99);
+        values[0] = 0;
+        values[1] = 0;
+        values[2] = 0;
+
+        vm.prank(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(Executor.ExecutionFailed.selector, 1));
+        executor.bundleExecute(targets, data, values);
+
+        assertEq(target1.number(), 0);
+        assertEq(target2.number(), 0);
     }
 }

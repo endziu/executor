@@ -56,6 +56,12 @@ contract ExecutorERC20Test is BaseExecutorTest {
         assertEq(token.balanceOf(ALICE), 0);
     }
 
+    function testCannotWithdrawERC20FromNonContractToken() public {
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.InvalidTarget.selector);
+        executor.withdrawERC20(ALICE, 1000, BOB);
+    }
+
     function testCannotWithdrawERC20WithZeroToken() public {
         vm.prank(OWNER);
         vm.expectRevert(Executor.ZeroAddress.selector);
