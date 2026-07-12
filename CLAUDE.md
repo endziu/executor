@@ -82,7 +82,7 @@ forge script script/Executor.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KE
 
 ## Code Conventions
 
-- **Solidity Version**: 0.8.19
+- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`)
 - **License**: MIT for main contract, UNLICENSED for tests
 - **Formatting**: Uses forge fmt (foundry formatter)
 - **Security**: All state-changing functions include reentrancy protection

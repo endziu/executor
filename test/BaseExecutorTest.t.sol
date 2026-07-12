@@ -46,14 +46,21 @@ contract FailingTarget {
 
 contract ReentrantAttacker {
     Executor public executorTarget;
+    bytes public reentryCalldata;
+    bytes public reentryRevertData;
 
     constructor(address payable _executor) {
         executorTarget = Executor(_executor);
     }
 
-    fallback() external payable {
-        bytes memory data = abi.encodeWithSignature("doNothing()");
-        executorTarget.execute(address(this), data);
+    function setReentryCalldata(bytes calldata data) external {
+        reentryCalldata = data;
+    }
+
+    receive() external payable {
+        (bool success, bytes memory returnData) = address(executorTarget).call(reentryCalldata);
+        require(!success, "reentry unexpectedly succeeded");
+        reentryRevertData = returnData;
     }
 }
 
@@ -78,6 +85,18 @@ contract RevertingERC20 {
 
     function transfer(address, uint256) external pure returns (bool) {
         revert("Transfer not allowed");
+    }
+}
+
+contract EmptyRevertERC20 {
+    mapping(address => uint256) public balanceOf;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function transfer(address, uint256) external pure returns (bool) {
+        revert();
     }
 }
 

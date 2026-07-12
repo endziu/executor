@@ -41,7 +41,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
         vm.deal(address(executor), amount);
 
         vm.prank(OWNER);
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert(Executor.InsufficientBalance.selector);
         executor.withdrawETH(amount + 1, payable(ALICE));
     }
 
@@ -60,7 +60,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
         vm.deal(address(executor), amount);
 
         vm.prank(OWNER);
-        vm.expectRevert("ETH transfer failed");
+        vm.expectRevert(Executor.EthTransferFailed.selector);
         executor.withdrawETH(amount, payable(address(rejecter)));
     }
 

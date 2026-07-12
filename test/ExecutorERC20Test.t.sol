@@ -33,7 +33,7 @@ contract ExecutorERC20Test is BaseExecutorTest {
         token.mint(address(executor), amount);
 
         vm.prank(OWNER);
-        vm.expectRevert("Insufficient token balance");
+        vm.expectRevert(Executor.InsufficientTokenBalance.selector);
         executor.withdrawERC20(address(token), amount + 1, ALICE);
     }
 
@@ -79,6 +79,16 @@ contract ExecutorERC20Test is BaseExecutorTest {
         vm.prank(OWNER);
         vm.expectRevert("Transfer not allowed");
         executor.withdrawERC20(address(revertingToken), amount, ALICE);
+    }
+
+    function testRevertOnERC20TransferRevertingWithoutData() public {
+        EmptyRevertERC20 emptyRevertToken = new EmptyRevertERC20();
+        uint256 amount = 1000;
+        emptyRevertToken.mint(address(executor), amount);
+
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.ERC20TransferFailed.selector);
+        executor.withdrawERC20(address(emptyRevertToken), amount, ALICE);
     }
 
     function testWithdrawNonStandardERC20NoReturnData() public {
