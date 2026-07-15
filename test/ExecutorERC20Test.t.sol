@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseExecutorTest.t.sol";
+import {BaseExecutorTest, EmptyRevertERC20, NoReturnERC20, RevertingERC20} from "./BaseExecutorTest.t.sol";
+import {Executor} from "../src/Executor.sol";
 
 contract ExecutorERC20Test is BaseExecutorTest {
     function testWithdrawERC20() public {

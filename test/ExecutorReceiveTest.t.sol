@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseExecutorTest.t.sol";
+import {BaseExecutorTest} from "./BaseExecutorTest.t.sol";
 
 contract ExecutorReceiveTest is BaseExecutorTest {
     function testReceiveEther() public {

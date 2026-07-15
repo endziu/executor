@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseExecutorTest.t.sol";
+import {BaseExecutorTest, ReentrantAttacker, Target} from "./BaseExecutorTest.t.sol";
+import {Executor} from "../src/Executor.sol";
 
 contract ExecutorReentrancyTest is BaseExecutorTest {
     ReentrantAttacker attacker;
@@ -29,7 +30,7 @@ contract ExecutorReentrancyTest is BaseExecutorTest {
     function testExecuteBlocksReentrantWithdrawETH() public {
         vm.deal(address(executor), 1 ether);
         attacker.setReentryCalldata(
-            abi.encodeWithSelector(Executor.withdrawETH.selector, 1 ether, payable(address(attacker)))
+            abi.encodeWithSelector(Executor.withdrawEth.selector, 1 ether, payable(address(attacker)))
         );
 
         vm.prank(OWNER);
@@ -45,7 +46,7 @@ contract ExecutorReentrancyTest is BaseExecutorTest {
         attacker.setReentryCalldata(abi.encodeWithSelector(Executor.execute.selector, address(target1), innerCall));
 
         vm.prank(OWNER);
-        executor.withdrawETH(1 ether, payable(address(attacker)));
+        executor.withdrawEth(1 ether, payable(address(attacker)));
 
         _assertReentryBlocked();
         assertEq(target1.number(), 0);

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "../src/Executor.sol";
+import {Test} from "forge-std/Test.sol";
+import {Executor} from "../src/Executor.sol";
 
 contract Target {
     uint256 public number;

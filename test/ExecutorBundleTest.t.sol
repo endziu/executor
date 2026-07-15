@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseExecutorTest.t.sol";
+import {BaseExecutorTest, FailingTarget} from "./BaseExecutorTest.t.sol";
+import {Executor} from "../src/Executor.sol";
 
 contract ExecutorBundleTest is BaseExecutorTest {
     function testBundleExecute() public {

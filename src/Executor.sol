@@ -12,10 +12,10 @@ interface IERC20 {
  * @notice Smart contract for executing arbitrary calls with access control
  * @dev Implements ownership, reentrancy protection, and asset management
  * @dev Ownership is immutable by design. To rotate the owner key, deploy a new
- *      Executor with the new owner and migrate assets via withdrawETH/withdrawERC20.
+ *      Executor with the new owner and migrate assets via withdrawEth/withdrawERC20.
  */
 contract Executor {
-    address public immutable owner;
+    address public immutable OWNER;
     bool private transient locked;
 
     event Executed(address indexed target, bytes data, bytes result);
@@ -41,9 +41,17 @@ contract Executor {
      * @dev Prevents reentrancy attacks
      */
     modifier nonReentrant() {
+        _nonReentrantBefore();
+        _;
+        _nonReentrantAfter();
+    }
+
+    function _nonReentrantBefore() internal {
         if (locked) revert ReentrancyGuard();
         locked = true;
-        _;
+    }
+
+    function _nonReentrantAfter() internal {
         locked = false;
     }
 
@@ -51,8 +59,12 @@ contract Executor {
      * @dev Restricts function access to contract owner
      */
     modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner();
+        _checkOwner();
         _;
+    }
+
+    function _checkOwner() internal view {
+        if (msg.sender != OWNER) revert NotOwner();
     }
 
     /**
@@ -61,7 +73,7 @@ contract Executor {
      */
     constructor(address _owner) {
         if (_owner == address(0)) revert ZeroAddress();
-        owner = _owner;
+        OWNER = _owner;
     }
 
     /**
@@ -129,7 +141,7 @@ contract Executor {
      * @param amount Amount of ETH in wei
      * @param to Recipient address
      */
-    function withdrawETH(uint256 amount, address payable to) external nonReentrant onlyOwner {
+    function withdrawEth(uint256 amount, address payable to) external nonReentrant onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         if (address(this).balance < amount) revert InsufficientBalance();
 
@@ -170,7 +182,7 @@ contract Executor {
      * @return Address of contract owner
      */
     function getOwner() external view returns (address) {
-        return owner;
+        return OWNER;
     }
 
     /**

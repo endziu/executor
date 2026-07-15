@@ -14,7 +14,7 @@ The Executor smart contract allows an owner to:
 
 The owner is set at deployment and is immutable — there is no ownership transfer.
 To rotate the owner key, deploy a new Executor with the new owner and migrate
-assets using `withdrawETH` / `withdrawERC20`.
+assets using `withdrawEth` / `withdrawERC20`.
 
 ## Installation
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./BaseExecutorTest.t.sol";
+import {BaseExecutorTest, ETHRejectingContract, ETHRejectingWithReasonContract} from "./BaseExecutorTest.t.sol";
+import {Executor} from "../src/Executor.sol";
 
 contract ExecutorBalanceTest is BaseExecutorTest {
     function testGetBalance() public {
@@ -21,7 +22,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
 
         // Test withdrawal
         vm.prank(OWNER);
-        executor.withdrawETH(amount, payable(OWNER));
+        executor.withdrawEth(amount, payable(OWNER));
 
         assertEq(address(executor).balance, 0);
         assertEq(OWNER.balance, INITIAL_BALANCE + amount);
@@ -33,7 +34,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
 
         vm.prank(ALICE);
         vm.expectRevert(Executor.NotOwner.selector);
-        executor.withdrawETH(amount, payable(ALICE));
+        executor.withdrawEth(amount, payable(ALICE));
     }
 
     function testCannotWithdrawMoreThanBalance() public {
@@ -42,7 +43,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.expectRevert(Executor.InsufficientBalance.selector);
-        executor.withdrawETH(amount + 1, payable(ALICE));
+        executor.withdrawEth(amount + 1, payable(ALICE));
     }
 
     function testCannotWithdrawETHToZeroAddress() public {
@@ -51,7 +52,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.expectRevert(Executor.ZeroAddress.selector);
-        executor.withdrawETH(amount, payable(address(0)));
+        executor.withdrawEth(amount, payable(address(0)));
     }
 
     function testCannotWithdrawETHToRejectingContract() public {
@@ -61,7 +62,7 @@ contract ExecutorBalanceTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.expectRevert(Executor.EthTransferFailed.selector);
-        executor.withdrawETH(amount, payable(address(rejecter)));
+        executor.withdrawEth(amount, payable(address(rejecter)));
     }
 
     function testCannotWithdrawETHBubblesRevertReason() public {
@@ -71,6 +72,6 @@ contract ExecutorBalanceTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.expectRevert("I reject your ETH");
-        executor.withdrawETH(amount, payable(address(rejecter)));
+        executor.withdrawEth(amount, payable(address(rejecter)));
     }
 }
