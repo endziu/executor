@@ -1,11 +1,28 @@
-# Compiler files
+# Foundry build artifacts
 cache/
 out/
 
-/broadcast
+# Deployment broadcast logs
+/broadcast/
 
-# Docs
+# Generated documentation (forge doc)
 docs/
 
-# Dotenv file
+# Coverage reports
+lcov.info
+coverage/
+
+# Environment secrets — keep .env.example tracked as a template
 .env
+.env.*
+!.env.example
+
+# Editor and OS cruft
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Claude Code local (per-machine) settings
+.claude/settings.local.json
