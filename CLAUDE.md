@@ -87,7 +87,7 @@ OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol --rpc-url <RPC_URL> --p
 
 ## Code Conventions
 
-- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`)
+- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`). Track latest stable Foundry/solc; see the "Toolchain" section in README.md for the update/bump routine. CI installs the latest stable Foundry (`version: stable`).
 - **License**: MIT for main contract and tests, UNLICENSED for the deploy script
 - **Formatting**: Uses forge fmt (foundry formatter)
 - **Security**: All state-changing functions include reentrancy protection
