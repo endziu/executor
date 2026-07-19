@@ -87,12 +87,45 @@ OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol --rpc-url <RPC_URL> --p
 
 ## Code Conventions
 
-- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`). Track latest stable Foundry/solc; see the "Toolchain" section in README.md for the update/bump routine. CI installs the latest stable Foundry (`version: stable`).
+- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`). Track latest stable Foundry/solc; see the "Toolchain" section below for the update/bump routine. CI installs the latest stable Foundry (`version: stable`).
 - **License**: MIT for main contract and tests, UNLICENSED for the deploy script
 - **Formatting**: Uses forge fmt (foundry formatter)
 - **Security**: All state-changing functions include reentrancy protection
 - **Access Control**: Owner-only pattern with `onlyOwner` modifier
 - **Error Handling**: Custom errors preferred over require statements in main contract
+
+## Toolchain
+
+This project tracks the latest stable Foundry and solc. Versions are pinned in the
+repo (`foundry.toml` `solc`, exact contract pragmas) so builds stay reproducible and
+audit-safe; CI installs the latest stable Foundry automatically (`version: stable` in
+`.github/workflows/test.yml`), so it needs no manual bump.
+
+### Updating locally
+
+```bash
+foundryup           # update forge/cast/anvil to the latest stable
+```
+
+If `foundryup` reports itself out of date, update it first, then reinstall:
+
+```bash
+foundryup --update
+foundryup --install stable
+```
+
+### Bumping solc
+
+When a new solc release lands and you want to move to it, bump these three in lockstep,
+then rebuild and test:
+
+1. `foundry.toml` → `solc = "0.8.<new>"`
+2. contract pragmas in `src/Executor.sol` and `script/Executor.s.sol` → `0.8.<new>`
+3. `forge build && forge test`
+
+> Note: because CI floats to `stable`, a new Foundry release can occasionally change a
+> gas value or compiler default and turn CI red without any code change. If that
+> happens, pin CI back to a known-good `version:` temporarily.
 
 ## Security Considerations
 
