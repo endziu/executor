@@ -147,11 +147,7 @@ contract Executor {
 
         (bool success, bytes memory returnData) = to.call{value: amount}("");
         if (!success) {
-            if (returnData.length > 0) {
-                assembly {
-                    revert(add(32, returnData), mload(returnData))
-                }
-            }
+            _bubbleRevert(returnData);
             revert EthTransferFailed();
         }
 
@@ -204,12 +200,8 @@ contract Executor {
         (bool success, bytes memory returndata) = address(token).call(data);
 
         if (!success) {
-            // If call failed, check if there's revert data to bubble up
-            if (returndata.length > 0) {
-                assembly {
-                    revert(add(32, returndata), mload(returndata))
-                }
-            }
+            // If call failed, bubble up any revert data
+            _bubbleRevert(returndata);
             revert ERC20TransferFailed();
         }
 
@@ -217,6 +209,19 @@ contract Executor {
         if (returndata.length > 0) {
             if (!abi.decode(returndata, (bool))) {
                 revert ERC20TransferFailed();
+            }
+        }
+    }
+
+    /**
+     * @dev Re-reverts with the given return data if any is present. If `returndata`
+     *      is empty this is a no-op and the caller falls through to its own error.
+     * @param returndata Raw return data from a failed low-level call
+     */
+    function _bubbleRevert(bytes memory returndata) private pure {
+        if (returndata.length > 0) {
+            assembly {
+                revert(add(32, returndata), mload(returndata))
             }
         }
     }

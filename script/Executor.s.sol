@@ -13,5 +13,7 @@ contract ExecutorScript is Script {
         vm.startBroadcast();
         executor = new Executor(owner);
         vm.stopBroadcast();
+
+        require(executor.OWNER() == owner, "Executor owner mismatch");
     }
 }
