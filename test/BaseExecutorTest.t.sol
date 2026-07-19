@@ -114,6 +114,26 @@ contract NoReturnERC20 {
     }
 }
 
+// Returns a non-standard short (4-byte) buffer from transfer. A naive
+// abi.decode(returndata, (bool)) reverts on this; a correct length-gated
+// decoder must treat it as a failed transfer.
+contract ShortReturnERC20 {
+    mapping(address => uint256) public balanceOf;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function transfer(address recipient, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[recipient] += amount;
+        assembly {
+            mstore(0, 1)
+            return(0, 4)
+        }
+    }
+}
+
 contract BaseExecutorTest is Test {
     Executor public executor;
     Target public target1;
@@ -125,7 +145,7 @@ contract BaseExecutorTest is Test {
     address constant OWNER = address(0xabc);
     uint256 constant INITIAL_BALANCE = 100 ether;
 
-    event Executed(address indexed target, bytes data, bytes result);
+    event Executed(address indexed target, bytes data, bytes32 resultHash);
     event BundleExecuted(address[] targets, bytes[] data);
 
     function setUp() public virtual {

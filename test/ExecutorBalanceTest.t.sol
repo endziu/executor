@@ -55,6 +55,17 @@ contract ExecutorBalanceTest is BaseExecutorTest {
         executor.withdrawEth(amount, payable(address(0)));
     }
 
+    // L-3: withdrawing ETH to the executor itself is rejected (net-zero
+    // movement that would otherwise emit a phantom-outflow event).
+    function testCannotWithdrawETHToSelf() public {
+        uint256 amount = 1 ether;
+        vm.deal(address(executor), amount);
+
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.InvalidTarget.selector);
+        executor.withdrawEth(amount, payable(address(executor)));
+    }
+
     function testCannotWithdrawETHToRejectingContract() public {
         ETHRejectingContract rejecter = new ETHRejectingContract();
         uint256 amount = 1 ether;

@@ -18,13 +18,14 @@ contract Executor {
     address public immutable OWNER;
     bool private transient locked;
 
-    event Executed(address indexed target, bytes data, bytes result);
+    event Executed(address indexed target, bytes data, bytes32 resultHash);
     event BundleExecuted(address[] targets, bytes[] data);
     event ETHWithdrawn(uint256 amount, address indexed to);
     event ERC20Withdrawn(address indexed token, uint256 amount, address indexed to);
 
     error NotOwner();
     error InvalidTarget();
+    error TargetNotContract(uint256 index);
     error ExecutionFailed(uint256 index);
     error ERC20TransferFailed();
     error MismatchedArrays();
@@ -92,12 +93,20 @@ contract Executor {
     {
         if (target == address(0)) revert InvalidTarget();
         if (msg.value == 0 && data.length == 0) revert NoTransactionData();
+        // A call carrying calldata must hit a contract; a codeless target would
+        // report success without executing anything. Bare ETH transfers (no
+        // calldata) to EOAs remain allowed.
+        if (data.length > 0 && target.code.length == 0) revert TargetNotContract(0);
 
         bool success;
         (success, result) = target.call{value: msg.value}(data);
         if (!success) revert ExecutionFailed(0);
 
-        emit Executed(target, data, result);
+        // Log only the hash of the returned data. Emitting the raw buffer would
+        // let a malicious target return an oversized payload that is re-copied
+        // into the event, amplifying memory-expansion gas costs. The full
+        // `result` is still returned to the caller.
+        emit Executed(target, data, keccak256(result));
     }
 
     /**
@@ -127,6 +136,7 @@ contract Executor {
 
         for (uint256 i = 0; i < targets.length; ++i) {
             if (targets[i] == address(0)) revert InvalidTarget();
+            if (data[i].length > 0 && targets[i].code.length == 0) revert TargetNotContract(i);
 
             (bool success,) = targets[i].call{value: values[i]}(data[i]);
             if (!success) revert ExecutionFailed(i);
@@ -143,6 +153,7 @@ contract Executor {
      */
     function withdrawEth(uint256 amount, address payable to) external nonReentrant onlyOwner {
         if (to == address(0)) revert ZeroAddress();
+        if (to == address(this)) revert InvalidTarget();
         if (address(this).balance < amount) revert InsufficientBalance();
 
         (bool success, bytes memory returnData) = to.call{value: amount}("");
@@ -164,6 +175,7 @@ contract Executor {
     function withdrawERC20(address token, uint256 amount, address to) external nonReentrant onlyOwner {
         if (token == address(0)) revert ZeroAddress();
         if (to == address(0)) revert ZeroAddress();
+        if (to == address(this)) revert InvalidTarget();
         if (token.code.length == 0) revert InvalidTarget();
 
         IERC20 erc20 = IERC20(token);
@@ -205,9 +217,11 @@ contract Executor {
             revert ERC20TransferFailed();
         }
 
-        // Check return value for tokens that return bool
+        // Check return value for tokens that return bool. A short (<32 byte)
+        // or dirty return is treated as a failure rather than reverting the
+        // ABI decoder, mirroring OpenZeppelin SafeERC20.
         if (returndata.length > 0) {
-            if (!abi.decode(returndata, (bool))) {
+            if (returndata.length < 32 || !abi.decode(returndata, (bool))) {
                 revert ERC20TransferFailed();
             }
         }
