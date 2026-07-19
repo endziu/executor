@@ -6,6 +6,12 @@
 **Date:** 2026-07-19
 **Tests:** 54/54 passing at time of review.
 
+> **Post-audit accounting change:** This report is an immutable record of commit
+> `fd4e7ff`. A later implementation decoupled outgoing call values from fresh
+> `msg.value`: `execute` now takes an explicit value, and bundle values may use
+> the Executor's stored balance. The report's exact-`msg.value` statements are
+> correct for the audited commit but do not describe the current implementation.
+
 ## Methodology
 
 Seven specialist sub-agents (opus) ran in parallel, each walking a domain checklist from the `evm-audit` skill set and writing a `findings-<domain>.md` in this directory:

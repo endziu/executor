@@ -1,5 +1,10 @@
 # Precision & Math Audit — `src/Executor.sol`
 
+> **Post-audit accounting change:** This historical review describes commit
+> `fd4e7ff`. The checked bundle sum is now compared to the Executor's available
+> balance rather than required to equal fresh `msg.value`. Checked-overflow
+> behavior is unchanged and is covered by a regression test.
+
 **Scope**: Arithmetic and numeric-precision review only.
 **Result**: No precision/math findings. The contract performs one arithmetic
 operation (a checked `uint256` accumulation) and one exact-equality comparison.

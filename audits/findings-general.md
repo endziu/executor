@@ -1,5 +1,10 @@
 # Executor — General EVM Checklist Audit
 
+> **Post-audit accounting change:** This historical review describes commit
+> `fd4e7ff`. Subsequent work gave `execute` an explicit outgoing value and lets
+> bundles draw from the Executor's available balance. Exact-`msg.value`
+> statements below remain accurate for the audited commit, not current code.
+
 **Scope**: `src/Executor.sol` (owner-controlled arbitrary-call execution proxy)
 **Toolchain**: solc 0.8.36, `evm_version = osaka`, transient-storage reentrancy guard, immutable `OWNER`
 **Threat model**: `OWNER` is fully trusted. Findings focus on what a *third party* (non-owner) can do, and separate genuine issues from owner-self-inflicted footguns.

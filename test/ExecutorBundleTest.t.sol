@@ -3,8 +3,96 @@ pragma solidity ^0.8.19;
 
 import {BaseExecutorTest, FailingTarget} from "./BaseExecutorTest.t.sol";
 import {Executor} from "../src/Executor.sol";
+import {stdError} from "forge-std/StdError.sol";
 
 contract ExecutorBundleTest is BaseExecutorTest {
+    function testFuzzBundleExecuteForwardsExactValues(uint256 firstValue, uint256 secondValue, uint256 retained)
+        public
+    {
+        firstValue = bound(firstValue, 0, 10 ether);
+        secondValue = bound(secondValue, 0, 10 ether);
+        retained = bound(retained, 0, 10 ether);
+        vm.deal(address(executor), firstValue + secondValue + retained);
+
+        address[] memory targets = new address[](2);
+        bytes[] memory data = new bytes[](2);
+        uint256[] memory values = new uint256[](2);
+
+        targets[0] = address(target1);
+        targets[1] = address(target2);
+        data[0] = abi.encodeWithSelector(target1.receiveEther.selector);
+        data[1] = abi.encodeWithSelector(target2.receiveEther.selector);
+        values[0] = firstValue;
+        values[1] = secondValue;
+
+        vm.prank(OWNER);
+        executor.bundleExecute(targets, data, values);
+
+        assertEq(address(target1).balance, firstValue);
+        assertEq(address(target2).balance, secondValue);
+        assertEq(address(executor).balance, retained);
+    }
+
+    function testBundleExecuteSpendsStoredEther() public {
+        vm.deal(address(executor), 2 ether);
+
+        address[] memory targets = new address[](2);
+        bytes[] memory data = new bytes[](2);
+        uint256[] memory values = new uint256[](2);
+
+        targets[0] = address(target1);
+        targets[1] = address(target2);
+        data[0] = abi.encodeWithSelector(target1.receiveEther.selector);
+        data[1] = abi.encodeWithSelector(target2.receiveEther.selector);
+        values[0] = 0.5 ether;
+        values[1] = 0.5 ether;
+
+        vm.prank(OWNER);
+        executor.bundleExecute(targets, data, values);
+
+        assertEq(address(target1).balance, 0.5 ether);
+        assertEq(address(target2).balance, 0.5 ether);
+        assertEq(address(executor).balance, 1 ether);
+    }
+
+    function testBundleExecuteCombinesStoredAndFreshEther() public {
+        vm.deal(address(executor), 1 ether);
+
+        address[] memory targets = new address[](2);
+        bytes[] memory data = new bytes[](2);
+        uint256[] memory values = new uint256[](2);
+
+        targets[0] = address(target1);
+        targets[1] = address(target2);
+        data[0] = abi.encodeWithSelector(target1.receiveEther.selector);
+        data[1] = abi.encodeWithSelector(target2.receiveEther.selector);
+        values[0] = 0.75 ether;
+        values[1] = 0.75 ether;
+
+        vm.prank(OWNER);
+        executor.bundleExecute{value: 1 ether}(targets, data, values);
+
+        assertEq(address(target1).balance, 0.75 ether);
+        assertEq(address(target2).balance, 0.75 ether);
+        assertEq(address(executor).balance, 0.5 ether);
+    }
+
+    function testBundleExecuteRetainsExcessFreshEther() public {
+        address[] memory targets = new address[](1);
+        bytes[] memory data = new bytes[](1);
+        uint256[] memory values = new uint256[](1);
+
+        targets[0] = address(target1);
+        data[0] = abi.encodeWithSelector(target1.receiveEther.selector);
+        values[0] = 0.5 ether;
+
+        vm.prank(OWNER);
+        executor.bundleExecute{value: 1 ether}(targets, data, values);
+
+        assertEq(address(target1).balance, 0.5 ether);
+        assertEq(address(executor).balance, 0.5 ether);
+    }
+
     function testBundleExecute() public {
         address[] memory targets = new address[](2);
         bytes[] memory data = new bytes[](2);
@@ -25,8 +113,8 @@ contract ExecutorBundleTest is BaseExecutorTest {
     }
 
     function testBundleExecuteWithEther() public {
-        uint256 amount1 = 0.5 ether;
-        uint256 amount2 = 0.5 ether;
+        uint256 amount1 = 0.25 ether;
+        uint256 amount2 = 0.75 ether;
 
         address[] memory targets = new address[](2);
         bytes[] memory data = new bytes[](2);
@@ -61,7 +149,7 @@ contract ExecutorBundleTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.expectEmit();
-        emit BundleExecuted(targets, data);
+        emit BundleExecuted(targets, values, data);
         executor.bundleExecute(targets, data, values);
     }
 
@@ -104,7 +192,7 @@ contract ExecutorBundleTest is BaseExecutorTest {
         emit log_named_uint("Bundle Execute Gas Used", gasUsed);
     }
 
-    function testCannotBundleExecuteWithIncorrectTotalValue() public {
+    function testCannotBundleExecuteAboveAvailableBalance() public {
         address[] memory targets = new address[](2);
         bytes[] memory data = new bytes[](2);
         uint256[] memory values = new uint256[](2);
@@ -118,8 +206,23 @@ contract ExecutorBundleTest is BaseExecutorTest {
 
         vm.prank(OWNER);
         vm.deal(OWNER, 0.5 ether);
-        vm.expectRevert(Executor.IncorrectEthValue.selector);
+        vm.expectRevert(Executor.InsufficientBalance.selector);
         executor.bundleExecute{value: 0.5 ether}(targets, data, values);
+    }
+
+    function testCannotBundleExecuteWhenValueSumOverflows() public {
+        address[] memory targets = new address[](2);
+        bytes[] memory data = new bytes[](2);
+        uint256[] memory values = new uint256[](2);
+
+        targets[0] = address(target1);
+        targets[1] = address(target2);
+        values[0] = type(uint256).max;
+        values[1] = 1;
+
+        vm.prank(OWNER);
+        vm.expectRevert(stdError.arithmeticError);
+        executor.bundleExecute(targets, data, values);
     }
 
     function testBundleExecuteWithZeroValues() public {
@@ -240,5 +343,31 @@ contract ExecutorBundleTest is BaseExecutorTest {
 
         assertEq(target1.number(), 0);
         assertEq(target2.number(), 0);
+    }
+
+    function testBundleExecuteFailureRollsBackStoredAndFreshEther() public {
+        FailingTarget failingTarget = new FailingTarget();
+        vm.deal(address(executor), 2 ether);
+        uint256 ownerBalanceBefore = OWNER.balance;
+
+        address[] memory targets = new address[](2);
+        bytes[] memory data = new bytes[](2);
+        uint256[] memory values = new uint256[](2);
+
+        targets[0] = address(target1);
+        targets[1] = address(failingTarget);
+        data[0] = abi.encodeWithSelector(target1.setNumber.selector, 42);
+        data[1] = abi.encodeWithSelector(failingTarget.alwaysRevert.selector);
+        values[0] = 0;
+        values[1] = 2.5 ether;
+
+        vm.prank(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(Executor.ExecutionFailed.selector, 1));
+        executor.bundleExecute{value: 1 ether}(targets, data, values);
+
+        assertEq(target1.number(), 0);
+        assertEq(address(executor).balance, 2 ether);
+        assertEq(address(failingTarget).balance, 0);
+        assertEq(OWNER.balance, ownerBalanceBefore);
     }
 }

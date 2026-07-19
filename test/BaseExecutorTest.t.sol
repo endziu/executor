@@ -145,8 +145,8 @@ contract BaseExecutorTest is Test {
     address constant OWNER = address(0xabc);
     uint256 constant INITIAL_BALANCE = 100 ether;
 
-    event Executed(address indexed target, bytes data, bytes32 resultHash);
-    event BundleExecuted(address[] targets, bytes[] data);
+    event Executed(address indexed target, uint256 value, bytes data, bytes32 resultHash);
+    event BundleExecuted(address[] targets, uint256[] values, bytes[] data);
 
     function setUp() public virtual {
         executor = new Executor(OWNER);

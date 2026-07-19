@@ -18,8 +18,8 @@ contract Executor {
     address public immutable OWNER;
     bool private transient locked;
 
-    event Executed(address indexed target, bytes data, bytes32 resultHash);
-    event BundleExecuted(address[] targets, bytes[] data);
+    event Executed(address indexed target, uint256 value, bytes data, bytes32 resultHash);
+    event BundleExecuted(address[] targets, uint256[] values, bytes[] data);
     event ETHWithdrawn(uint256 amount, address indexed to);
     event ERC20Withdrawn(address indexed token, uint256 amount, address indexed to);
 
@@ -31,7 +31,6 @@ contract Executor {
     error MismatchedArrays();
     error NoTransactionData();
     error NoTargets();
-    error IncorrectEthValue();
     error ZeroAddress();
     error ReentrancyGuard();
     error InsufficientBalance();
@@ -82,9 +81,10 @@ contract Executor {
      * @dev Reverts if target is zero address or if call fails
      * @param target Address of contract to call
      * @param data Function call data
+     * @param value Amount of ETH to send with the call
      * @return result The raw bytes returned from the call
      */
-    function execute(address target, bytes calldata data)
+    function execute(address target, bytes calldata data, uint256 value)
         external
         payable
         nonReentrant
@@ -92,21 +92,22 @@ contract Executor {
         returns (bytes memory result)
     {
         if (target == address(0)) revert InvalidTarget();
-        if (msg.value == 0 && data.length == 0) revert NoTransactionData();
+        if (value == 0 && data.length == 0) revert NoTransactionData();
         // A call carrying calldata must hit a contract; a codeless target would
         // report success without executing anything. Bare ETH transfers (no
         // calldata) to EOAs remain allowed.
         if (data.length > 0 && target.code.length == 0) revert TargetNotContract(0);
+        if (value > address(this).balance) revert InsufficientBalance();
 
         bool success;
-        (success, result) = target.call{value: msg.value}(data);
+        (success, result) = target.call{value: value}(data);
         if (!success) revert ExecutionFailed(0);
 
         // Log only the hash of the returned data. Emitting the raw buffer would
         // let a malicious target return an oversized payload that is re-copied
         // into the event, amplifying memory-expansion gas costs. The full
         // `result` is still returned to the caller.
-        emit Executed(target, data, keccak256(result));
+        emit Executed(target, value, data, keccak256(result));
     }
 
     /**
@@ -132,7 +133,7 @@ contract Executor {
         for (uint256 i = 0; i < values.length; ++i) {
             totalValue += values[i];
         }
-        if (totalValue != msg.value) revert IncorrectEthValue();
+        if (totalValue > address(this).balance) revert InsufficientBalance();
 
         for (uint256 i = 0; i < targets.length; ++i) {
             if (targets[i] == address(0)) revert InvalidTarget();
@@ -142,7 +143,7 @@ contract Executor {
             if (!success) revert ExecutionFailed(i);
         }
 
-        emit BundleExecuted(targets, data);
+        emit BundleExecuted(targets, values, data);
     }
 
     /**

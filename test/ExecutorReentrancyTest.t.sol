@@ -18,10 +18,10 @@ contract ExecutorReentrancyTest is BaseExecutorTest {
 
     function testExecuteBlocksReentrantExecute() public {
         bytes memory innerCall = abi.encodeWithSelector(Target.setNumber.selector, 42);
-        attacker.setReentryCalldata(abi.encodeWithSelector(Executor.execute.selector, address(target1), innerCall));
+        attacker.setReentryCalldata(abi.encodeWithSelector(Executor.execute.selector, address(target1), innerCall, 0));
 
         vm.prank(OWNER);
-        executor.execute{value: 1 ether}(address(attacker), "");
+        executor.execute{value: 1 ether}(address(attacker), "", 1 ether);
 
         _assertReentryBlocked();
         assertEq(target1.number(), 0);
@@ -34,7 +34,7 @@ contract ExecutorReentrancyTest is BaseExecutorTest {
         );
 
         vm.prank(OWNER);
-        executor.execute{value: 1 ether}(address(attacker), "");
+        executor.execute{value: 1 ether}(address(attacker), "", 1 ether);
 
         _assertReentryBlocked();
         assertEq(address(executor).balance, 1 ether);
@@ -43,7 +43,7 @@ contract ExecutorReentrancyTest is BaseExecutorTest {
     function testWithdrawETHBlocksReentrantExecute() public {
         vm.deal(address(executor), 2 ether);
         bytes memory innerCall = abi.encodeWithSelector(Target.setNumber.selector, 42);
-        attacker.setReentryCalldata(abi.encodeWithSelector(Executor.execute.selector, address(target1), innerCall));
+        attacker.setReentryCalldata(abi.encodeWithSelector(Executor.execute.selector, address(target1), innerCall, 0));
 
         vm.prank(OWNER);
         executor.withdrawEth(1 ether, payable(address(attacker)));
