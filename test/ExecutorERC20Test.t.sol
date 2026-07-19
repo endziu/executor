@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {BaseExecutorTest, EmptyRevertERC20, NoReturnERC20, RevertingERC20} from "./BaseExecutorTest.t.sol";
+import {
+    BaseExecutorTest,
+    EmptyRevertERC20,
+    NoReturnERC20,
+    RevertingERC20,
+    ShortReturnERC20
+} from "./BaseExecutorTest.t.sol";
 import {Executor} from "../src/Executor.sol";
 
 contract ExecutorERC20Test is BaseExecutorTest {
@@ -96,6 +102,29 @@ contract ExecutorERC20Test is BaseExecutorTest {
         vm.prank(OWNER);
         vm.expectRevert(Executor.ERC20TransferFailed.selector);
         executor.withdrawERC20(address(emptyRevertToken), amount, ALICE);
+    }
+
+    // L-1: a short (<32 byte) return must be treated as a failed transfer, not
+    // trigger an empty revert from the ABI decoder.
+    function testWithdrawERC20ShortReturnReverts() public {
+        ShortReturnERC20 shortToken = new ShortReturnERC20();
+        uint256 amount = 1000;
+        shortToken.mint(address(executor), amount);
+
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.ERC20TransferFailed.selector);
+        executor.withdrawERC20(address(shortToken), amount, ALICE);
+    }
+
+    // L-3: withdrawing to the executor itself is rejected (would emit a
+    // phantom-outflow event for a net-zero movement).
+    function testCannotWithdrawERC20ToSelf() public {
+        uint256 amount = 1000;
+        token.mint(address(executor), amount);
+
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.InvalidTarget.selector);
+        executor.withdrawERC20(address(token), amount, address(executor));
     }
 
     function testWithdrawNonStandardERC20NoReturnData() public {

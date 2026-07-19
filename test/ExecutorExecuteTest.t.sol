@@ -52,12 +52,34 @@ contract ExecutorExecuteTest is BaseExecutorTest {
 
     function testExecuteEmitsEvent() public {
         bytes memory data = abi.encodeWithSelector(target1.setNumber.selector, 42);
-        bytes memory expectedResult = abi.encode(); // Empty because setNumber doesn't return anything
+        // setNumber returns nothing, so the result buffer is empty
+        bytes32 expectedResultHash = keccak256("");
 
         vm.prank(OWNER);
         vm.expectEmit(true, false, false, true);
-        emit Executed(address(target1), data, expectedResult);
+        emit Executed(address(target1), data, expectedResultHash);
         executor.execute(address(target1), data);
+    }
+
+    // L-2: a call carrying calldata to a codeless address (EOA) would report
+    // success without executing anything; it must revert instead.
+    function testCannotExecuteWithDataToCodelessTarget() public {
+        bytes memory data = abi.encodeWithSelector(target1.setNumber.selector, 42);
+        vm.prank(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(Executor.TargetNotContract.selector, 0));
+        executor.execute(ALICE, data);
+    }
+
+    // L-2: a bare ETH transfer (no calldata) to an EOA remains allowed.
+    function testExecuteBareEthTransferToEOA() public {
+        uint256 amount = 1 ether;
+        uint256 balanceBefore = ALICE.balance;
+
+        vm.prank(OWNER);
+        vm.deal(OWNER, amount);
+        executor.execute{value: amount}(ALICE, "");
+
+        assertEq(ALICE.balance, balanceBefore + amount);
     }
 
     function testExecuteReverts() public {

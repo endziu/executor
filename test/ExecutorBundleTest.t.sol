@@ -175,6 +175,48 @@ contract ExecutorBundleTest is BaseExecutorTest {
         assertEq(target2.number(), 0);
     }
 
+    // L-2: a bundle leg carrying calldata to a codeless address reverts at that
+    // index and rolls back the whole bundle.
+    function testCannotBundleExecuteWithDataToCodelessTarget() public {
+        address[] memory targets = new address[](2);
+        bytes[] memory data = new bytes[](2);
+        uint256[] memory values = new uint256[](2);
+
+        targets[0] = address(target1);
+        targets[1] = ALICE; // EOA — no code
+        data[0] = abi.encodeWithSelector(target1.setNumber.selector, 42);
+        data[1] = abi.encodeWithSelector(target2.setNumber.selector, 99);
+        values[0] = 0;
+        values[1] = 0;
+
+        vm.prank(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(Executor.TargetNotContract.selector, 1));
+        executor.bundleExecute(targets, data, values);
+
+        assertEq(target1.number(), 0);
+    }
+
+    // L-2: bundle legs that are bare ETH transfers (no calldata) to EOAs remain
+    // allowed.
+    function testBundleExecuteBareEthTransferToEOA() public {
+        address[] memory targets = new address[](1);
+        bytes[] memory data = new bytes[](1);
+        uint256[] memory values = new uint256[](1);
+
+        uint256 amount = 1 ether;
+        uint256 balanceBefore = BOB.balance;
+
+        targets[0] = BOB;
+        data[0] = "";
+        values[0] = amount;
+
+        vm.prank(OWNER);
+        vm.deal(OWNER, amount);
+        executor.bundleExecute{value: amount}(targets, data, values);
+
+        assertEq(BOB.balance, balanceBefore + amount);
+    }
+
     function testBundleExecuteRevertsWholeBundleOnFailedCall() public {
         FailingTarget failingTarget = new FailingTarget();
 
