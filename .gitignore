@@ -9,6 +9,7 @@ out/
 docs/*
 # ...but keep agent-skills config tracked
 !docs/agents/
+!docs/notes/
 
 # Coverage reports
 lcov.info
