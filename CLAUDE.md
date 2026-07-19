@@ -85,9 +85,13 @@ forge coverage
 OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
 ```
 
+The deployment script accepts only Base mainnet (chain ID `8453`) and Base
+Sepolia (chain ID `84532`). The contract uses EIP-1153 transient storage and is
+compiled for Cancun, the minimum compatible EVM hardfork.
+
 ## Code Conventions
 
-- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `osaka`). Track latest stable Foundry/solc; see the "Toolchain" section below for the update/bump routine. CI installs the latest stable Foundry (`version: stable`).
+- **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `cancun`). Track latest stable Foundry/solc; see the "Toolchain" section below for the update/bump routine. CI installs the latest stable Foundry (`version: stable`).
 - **License**: MIT for main contract and tests, UNLICENSED for the deploy script
 - **Formatting**: Uses forge fmt (foundry formatter)
 - **Security**: All state-changing functions include reentrancy protection
@@ -100,6 +104,10 @@ This project tracks the latest stable Foundry and solc. Versions are pinned in t
 repo (`foundry.toml` `solc`, exact contract pragmas) so builds stay reproducible and
 audit-safe; CI installs the latest stable Foundry automatically (`version: stable` in
 `.github/workflows/test.yml`), so it needs no manual bump.
+
+Keep `evm_version = "cancun"` pinned independently of solc upgrades. Raising the
+compiler target can emit bytecode that the supported Base networks do not yet
+accept even when the Solidity source itself is unchanged.
 
 ### Updating locally
 

@@ -24,8 +24,14 @@ OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol \
   --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast
 ```
 
+The deployment script supports Base mainnet (chain ID `8453`) and Base Sepolia
+(chain ID `84532`) only, and rejects every other chain before broadcasting. The
+contract uses EIP-1153 transient storage and is compiled for the Cancun EVM, the
+minimum hardfork required by its reentrancy guard.
+
 ## Toolchain
 
 Tracks the latest stable Foundry/solc, with versions pinned (`foundry.toml`,
-contract pragmas) for reproducible builds. CI floats to `stable`. See CLAUDE.md
-for the local update and solc-bump routine.
+contract pragmas) for reproducible builds. The EVM target remains pinned to
+`cancun` independently of compiler upgrades. CI floats to `stable`. See
+CLAUDE.md for the local update and solc-bump routine.
