@@ -6,7 +6,9 @@ out/
 /broadcast/
 
 # Generated documentation (forge doc)
-docs/
+docs/*
+# ...but keep agent-skills config tracked
+!docs/agents/
 
 # Coverage reports
 lcov.info
