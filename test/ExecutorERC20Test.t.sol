@@ -116,6 +116,17 @@ contract ExecutorERC20Test is BaseExecutorTest {
         executor.withdrawERC20(address(shortToken), amount, ALICE);
     }
 
+    // F-8: a zero-amount withdrawal is a no-op that would emit a phantom
+    // ERC20Withdrawn(token, 0, ...) event; reject it with a clear error instead.
+    function testCannotWithdrawZeroERC20() public {
+        uint256 amount = 1000;
+        token.mint(address(executor), amount);
+
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.ZeroAmount.selector);
+        executor.withdrawERC20(address(token), 0, ALICE);
+    }
+
     // L-3: withdrawing to the executor itself is rejected (would emit a
     // phantom-outflow event for a net-zero movement).
     function testCannotWithdrawERC20ToSelf() public {

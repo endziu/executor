@@ -214,7 +214,7 @@ owner's form.
 
 - The Executor contract can execute arbitrary calls, making owner security critical
 - All external calls are protected by reentrancy guards
-- Bundle execution validates ETH value totals match individual call values
+- Bundle execution checks the summed `values[i]` against the available balance at entry (explicit-value model; ETH totals are independent of `msg.value`)
 - Bundle execution is atomic: any failed call or address(0) target reverts the whole bundle
 - Ownership is immutable — key rotation means deploying a new Executor and migrating assets
 - Withdrawal functions include balance checks before transfers
@@ -264,6 +264,37 @@ The two optional hardenings from the audit (a documented bundle-size cap and a
 `try/catch` around the `balanceOf` read) are **deliberately declined**: they add
 an arbitrary limit / extra complexity to paths the owner can already route
 around, with no third-party benefit.
+
+### Consistency & cosmetic items (audit finding F-8)
+
+Six sub-items, all Info. Three fixed, three accepted:
+
+**Fixed:**
+
+- **`execute` swallowed the target's revert reason.** It now bubbles the reason
+  via `_bubbleRevert` (mirroring the withdraw paths); a target that reverts
+  without data still falls through to `ExecutionFailed(0)`. `bundleExecute`
+  intentionally keeps `ExecutionFailed(i)` — the failing leg's index is more
+  useful in a batch than a raw reason.
+- **Zero-amount withdrawals emitted phantom `*Withdrawn(0, …)` events.**
+  `withdrawEth` and `withdrawERC20` now reject `amount == 0` with `ZeroAmount`.
+  (This also closes the `amount == 0` item deferred here from F-4.)
+- **`_bubbleRevert` lacked the memory-safe annotation.** Now
+  `assembly ("memory-safe")` — the Yul was already provably correct; this is the
+  current idiom.
+
+**Accepted (no code change):**
+
+- **`execute`/`bundleExecute` allow `target == address(this)`** while the
+  withdraw functions reject `to == address(this)`. Not exploitable: a self-call
+  into any mutating function reverts (`onlyOwner` sees `msg.sender == Executor`,
+  not `OWNER`). Blocking self-calls would contradict the deliberately general
+  "owner can call anything" design; worst case is a pointless self-referential
+  event.
+- **Blocklist/pause tokens** (USDC/USDT) can freeze held balances at the token
+  level — inherent counterparty risk with no in-contract mitigation.
+- **ERC777/677 reentrant tokens** invoked via `execute` are fully contained by
+  the transient reentrancy guard — a positive control, no action.
 
 ## Test Constants
 - `OWNER`: address(0xabc) - Contract owner in tests  

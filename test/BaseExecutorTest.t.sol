@@ -44,6 +44,12 @@ contract FailingTarget {
     }
 }
 
+contract NoDataRevertTarget {
+    function revertNoData() external pure {
+        revert();
+    }
+}
+
 contract ReentrantAttacker {
     Executor public executorTarget;
     bytes public reentryCalldata;

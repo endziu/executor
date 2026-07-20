@@ -32,6 +32,7 @@ contract Executor {
     error NoTransactionData();
     error NoTargets();
     error ZeroAddress();
+    error ZeroAmount();
     error ReentrancyGuard();
     error InsufficientBalance();
     error InsufficientTokenBalance();
@@ -78,7 +79,9 @@ contract Executor {
 
     /**
      * @notice Executes a single transaction with optional ETH value
-     * @dev Reverts if target is zero address or if call fails
+     * @dev Reverts if target is zero address or if call fails. On failure the
+     *      target's revert reason is bubbled up; a target that reverts without
+     *      data falls through to ExecutionFailed(0).
      * @param target Address of contract to call
      * @param data Function call data
      * @param value Amount of ETH to send with the call
@@ -101,7 +104,13 @@ contract Executor {
 
         bool success;
         (success, result) = target.call{value: value}(data);
-        if (!success) revert ExecutionFailed(0);
+        if (!success) {
+            // Surface the target's revert reason for diagnosability, mirroring
+            // the withdraw paths. Falls through to ExecutionFailed(0) when the
+            // target reverted without data.
+            _bubbleRevert(result);
+            revert ExecutionFailed(0);
+        }
 
         // Log only the hash of the returned data. Emitting the raw buffer would
         // let a malicious target return an oversized payload that is re-copied
@@ -155,6 +164,7 @@ contract Executor {
     function withdrawEth(uint256 amount, address payable to) external nonReentrant onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         if (to == address(this)) revert InvalidTarget();
+        if (amount == 0) revert ZeroAmount();
         if (address(this).balance < amount) revert InsufficientBalance();
 
         (bool success, bytes memory returnData) = to.call{value: amount}("");
@@ -187,6 +197,7 @@ contract Executor {
         if (to == address(0)) revert ZeroAddress();
         if (to == address(this)) revert InvalidTarget();
         if (token.code.length == 0) revert InvalidTarget();
+        if (amount == 0) revert ZeroAmount();
 
         IERC20 erc20 = IERC20(token);
         if (erc20.balanceOf(address(this)) < amount) revert InsufficientTokenBalance();
@@ -244,7 +255,7 @@ contract Executor {
      */
     function _bubbleRevert(bytes memory returndata) private pure {
         if (returndata.length > 0) {
-            assembly {
+            assembly ("memory-safe") {
                 revert(add(32, returndata), mload(returndata))
             }
         }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {BaseExecutorTest, FailingTarget, ReentrantAttacker} from "./BaseExecutorTest.t.sol";
+import {BaseExecutorTest, FailingTarget, NoDataRevertTarget, ReentrantAttacker} from "./BaseExecutorTest.t.sol";
 import {Executor} from "../src/Executor.sol";
 
 contract ExecutorExecuteTest is BaseExecutorTest {
@@ -73,6 +73,8 @@ contract ExecutorExecuteTest is BaseExecutorTest {
 
         bytes memory data = abi.encodeWithSelector(failingTarget.alwaysRevert.selector);
         vm.prank(OWNER);
+        // alwaysRevert is non-payable, so the 2.5 ether transfer fails before the
+        // body runs: an empty-data revert that falls through to ExecutionFailed(0).
         vm.expectRevert(abi.encodeWithSelector(Executor.ExecutionFailed.selector, 0));
         executor.execute{value: 1 ether}(address(failingTarget), data, 2.5 ether);
 
@@ -163,8 +165,19 @@ contract ExecutorExecuteTest is BaseExecutorTest {
         bytes memory data = abi.encodeWithSelector(failingTarget.alwaysRevert.selector);
 
         vm.prank(OWNER);
-        vm.expectRevert(abi.encodeWithSelector(Executor.ExecutionFailed.selector, 0));
+        // A target that reverts with a reason has that reason bubbled up (F-8).
+        vm.expectRevert("Custom revert message");
         executor.execute(address(failingTarget), data, 0);
+    }
+
+    // F-8: a target that reverts without data falls through to ExecutionFailed(0).
+    function testExecuteRevertsWithoutDataFallsThrough() public {
+        NoDataRevertTarget noDataTarget = new NoDataRevertTarget();
+        bytes memory data = abi.encodeWithSelector(noDataTarget.revertNoData.selector);
+
+        vm.prank(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(Executor.ExecutionFailed.selector, 0));
+        executor.execute(address(noDataTarget), data, 0);
     }
 
     function testCannotReenterExecute() public {

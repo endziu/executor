@@ -55,6 +55,16 @@ contract ExecutorBalanceTest is BaseExecutorTest {
         executor.withdrawEth(amount, payable(address(0)));
     }
 
+    // F-8: a zero-amount withdrawal is a no-op that would emit a phantom
+    // ETHWithdrawn(0, ...) event; reject it with a clear error instead.
+    function testCannotWithdrawZeroEth() public {
+        vm.deal(address(executor), 1 ether);
+
+        vm.prank(OWNER);
+        vm.expectRevert(Executor.ZeroAmount.selector);
+        executor.withdrawEth(0, payable(ALICE));
+    }
+
     // L-3: withdrawing ETH to the executor itself is rejected (net-zero
     // movement that would otherwise emit a phantom-outflow event).
     function testCannotWithdrawETHToSelf() public {
