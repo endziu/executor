@@ -96,6 +96,26 @@ The deployment script accepts only Base mainnet (chain ID `8453`) and Base
 Sepolia (chain ID `84532`). The contract uses EIP-1153 transient storage and is
 compiled for Cancun, the minimum compatible EVM hardfork.
 
+### Chain support and exclusions
+
+The Executor targets EVM-bytecode-equivalent chains only, and the deploy-script
+allow-list (default-deny) is the enforcement point. Any chain added to that list
+must be EVM-equivalent.
+
+**zkSync Era and other non-EVM-equivalent zk chains are unsupported (audit
+finding F-3).** They are excluded by policy, not merely absent from the
+allow-list, because:
+
+- they require the `zksolc` compiler — this build produces no zkSync artifact;
+- `EXTCODESIZE` / `code.length` semantics differ (e.g. `0` for some system
+  contracts and during construction), so the `code.length == 0` guards in
+  `execute` / `bundleExecute` / `withdrawERC20` can false-positive and reject
+  legitimate targets or tokens;
+- CREATE/CREATE2 address derivation differs from the EVM formula.
+
+Supporting such a chain would require a separate `zksolc` build path and a
+re-audit of the `code.length` guards under its semantics — out of scope here.
+
 ## Code Conventions
 
 - **Solidity Version**: 0.8.36 (pinned in foundry.toml, EVM target `cancun`). Track latest stable Foundry/solc; see the "Toolchain" section below for the update/bump routine. CI installs the latest stable Foundry (`version: stable`).
