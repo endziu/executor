@@ -17,6 +17,13 @@ This is a Foundry-based Solidity project implementing an `Executor` smart contra
   - Reentrancy protection on all state-changing functions
   - Owner-only access control
 
+### ETH accounting model
+Outgoing call values are stated explicitly and are independent of `msg.value`:
+- `execute(target, data, value)` sends `value` wei; `bundleExecute` sends each leg its own `values[i]`.
+- Stored ETH and fresh `msg.value` are fungible. A call can be funded from stored balance (zero `msg.value`), fresh funding, or both. The requested value (or checked bundle sum) must not exceed the balance available at function entry, otherwise it reverts with `InsufficientBalance`.
+- Excess funding stays deposited: any `msg.value` beyond what the call spends remains in the Executor and is not auto-forwarded. Direct ETH transfers land in the balance via `receive()`.
+- The explicit-`value` signature is a breaking ABI change from the earlier exact-`msg.value` model. There is no in-place upgrade — deploy a new Executor and migrate assets with `withdrawEth` / `withdrawERC20`. Zero-value callers must pass an explicit `value` of `0`. Historical audit reports in `audits/` are annotated with this post-audit accounting change.
+
 ### Test Structure
 The test suite is organized by functionality:
 - `BaseExecutorTest.t.sol`: Base test contract with setup and helper contracts
