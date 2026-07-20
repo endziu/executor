@@ -111,6 +111,23 @@ it was given — it cannot tell whether that value is the one you intended. So:
 - The script logs the deployed address and resolved owner. Verify that owner on a
   block explorer **before funding** the contract.
 
+### Deployment address (audit finding F-6)
+
+The script deploys with plain `CREATE`, so the Executor's address is
+`keccak256(deployer, deployer_nonce)` — it depends only on the deploying account
+and its nonce, not on the bytecode, constructor args, or chain. Two consequences:
+
+- **Not deterministic across chains.** The same wallet at a different nonce on each
+  chain yields a different Executor address. There is no single cross-chain address.
+- **Reorg-sensitive.** Do not pre-send ETH to a *predicted* address before the
+  deploy is final: a reorg can reorder your transactions so the deploy consumes a
+  different nonce and lands elsewhere, stranding funds at an address no one controls.
+
+Guidance: don't pre-fund a predicted address — deploy first, wait for finality,
+read the actual address from the script output, then fund it. Only reach for a
+`CREATE2` factory with a fixed salt if you genuinely need the same address across
+chains (not a current requirement — deployments are Base mainnet / Sepolia only).
+
 ### Chain support and exclusions
 
 The Executor targets EVM-bytecode-equivalent chains only, and the deploy-script
