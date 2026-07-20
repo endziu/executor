@@ -33,3 +33,13 @@ OWNER=<OWNER_ADDRESS> forge script script/Executor.s.sol \
 
 The deployment script supports Base mainnet (chain ID `8453`) and Base Sepolia
 (chain ID `84532`) only.
+
+## Audit
+
+The contract was reviewed in a multi-agent security audit
+([`audits/AUDIT-REPORT.md`](audits/AUDIT-REPORT.md)). All eight consolidated
+findings (F-1 … F-8) have been remediated — fixed, documented, accepted as
+intended design, or excluded by policy — with the disposition and rationale for
+each recorded in [`audits/REMEDIATION.md`](audits/REMEDIATION.md). No
+high-severity issues were found; the two findings with code changes carry
+regression tests.

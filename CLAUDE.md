@@ -38,7 +38,8 @@ The test suite is organized by functionality:
 ### Helper Contracts (in BaseExecutorTest.t.sol)
 - `Target`: Simple contract for testing function calls
 - `MockERC20`: ERC20 mock with configurable transfer failures
-- `FailingTarget`: Contract that always reverts for error testing
+- `FailingTarget`: Contract that always reverts with a reason ("Custom revert message")
+- `NoDataRevertTarget`: Reverts with no data (exercises the empty-revert fall-through)
 - `ReentrantAttacker`: Re-enters the Executor from `receive()` and records the revert data
 - `ETHRejectingContract` / `ETHRejectingWithReasonContract`: Reject incoming ETH (without/with reason)
 - `RevertingERC20` / `EmptyRevertERC20`: Tokens whose `transfer` reverts (with/without data)
@@ -219,82 +220,35 @@ owner's form.
 - Ownership is immutable — key rotation means deploying a new Executor and migrating assets
 - Withdrawal functions include balance checks before transfers
 
-### Escape hatch for non-standard tokens (audit finding F-4)
+### Non-standard token withdrawals (audit finding F-4)
 
-`withdrawERC20` uses strict `_safeTransfer` validation (OZ SafeERC20 semantics):
-a `false`, short (<32 byte), or dirty return, or a call-revert, reverts with
-`ERC20TransferFailed`. This is intentional and kept strict — loosening it would
-silently accept genuinely failed transfers.
-
-As a side effect the dedicated withdrawal path rejects a few legitimate
-non-standard tokens: return-`false`-on-success (Tether Gold class),
-`uint96`-capped balances above 2^96-1 (UNI/COMP class), and zero-amount-revert
-tokens. **No funds are ever locked.** The owner recovers such tokens through the
-general escape hatch, which only checks call-level success:
+`withdrawERC20` keeps strict `_safeTransfer` validation (OZ SafeERC20 semantics),
+which rejects a few legitimate non-standard tokens (return-`false`-on-success,
+`uint96`-capped, zero-amount-revert). **No funds are ever locked** — withdraw
+such tokens via the escape hatch, which only checks call-level success:
 
 ```solidity
 execute(token, abi.encodeCall(IERC20.transfer, (to, amount)), 0)
 ```
 
-This is documentation only — no behavior change. The overlapping cosmetic item
-(a phantom zero-amount `*Withdrawn` event) is tracked under F-8.
-
 ### Owner-self-inflicted DoS (audit finding F-7)
 
-Four paths can be made to consume excess gas or revert, but **all four are
-reachable only inside an owner-initiated tx with owner-chosen inputs, and each
-has a recovery path.** No third party can trigger any of them, so they fall
-outside the threat model — consistent with the F-5 trust model, where the owner
-already has total authority. Accepted as-is; no code change:
+The unbounded-bundle, returndata-copy, reverting-`balanceOf`, and
+reverting-ETH-recipient paths are reachable only inside an owner-initiated tx
+with owner-chosen inputs and each has a recovery path — accepted as out of the
+threat model, consistent with F-5. Practical upshot: retry a smaller bundle;
+route a stuck `withdrawERC20`/`withdrawEth` through the F-4 escape hatch or a
+different recipient.
 
-- **Unbounded bundle arrays** (`bundleExecute` gas DoS) — the owner sizes the
-  array; recovery is to retry with a smaller bundle.
-- **Returndata copying** in `execute` / `_bubbleRevert` from an owner-chosen
-  target — `execute` already only *hashes* returndata into its event (never
-  re-emits the raw buffer), and `bundleExecute` discards return values entirely
-  (`(bool success,)`), so the batch path is immune to returndata bombing. Blast
-  radius is the owner's own tx.
-- **Reverting `balanceOf`** blocks `withdrawERC20` — recover via the same escape
-  hatch as F-4: `execute(token, transfer(to, amount))` skips the `balanceOf`
-  read.
-- **Reverting ETH recipient** blocks `withdrawEth` — the owner picks a different
-  `to`; funds are never stuck.
+### Behavioral notes from F-8
 
-The two optional hardenings from the audit (a documented bundle-size cap and a
-`try/catch` around the `balanceOf` read) are **deliberately declined**: they add
-an arbitrary limit / extra complexity to paths the owner can already route
-around, with no third-party benefit.
+- `execute` bubbles the target's revert reason on failure; a target that reverts
+  without data falls through to `ExecutionFailed(0)`. `bundleExecute` keeps
+  `ExecutionFailed(i)` to preserve the failing leg's index.
+- `withdrawEth` / `withdrawERC20` reject `amount == 0` with `ZeroAmount`.
 
-### Consistency & cosmetic items (audit finding F-8)
-
-Six sub-items, all Info. Three fixed, three accepted:
-
-**Fixed:**
-
-- **`execute` swallowed the target's revert reason.** It now bubbles the reason
-  via `_bubbleRevert` (mirroring the withdraw paths); a target that reverts
-  without data still falls through to `ExecutionFailed(0)`. `bundleExecute`
-  intentionally keeps `ExecutionFailed(i)` — the failing leg's index is more
-  useful in a batch than a raw reason.
-- **Zero-amount withdrawals emitted phantom `*Withdrawn(0, …)` events.**
-  `withdrawEth` and `withdrawERC20` now reject `amount == 0` with `ZeroAmount`.
-  (This also closes the `amount == 0` item deferred here from F-4.)
-- **`_bubbleRevert` lacked the memory-safe annotation.** Now
-  `assembly ("memory-safe")` — the Yul was already provably correct; this is the
-  current idiom.
-
-**Accepted (no code change):**
-
-- **`execute`/`bundleExecute` allow `target == address(this)`** while the
-  withdraw functions reject `to == address(this)`. Not exploitable: a self-call
-  into any mutating function reverts (`onlyOwner` sees `msg.sender == Executor`,
-  not `OWNER`). Blocking self-calls would contradict the deliberately general
-  "owner can call anything" design; worst case is a pointless self-referential
-  event.
-- **Blocklist/pause tokens** (USDC/USDT) can freeze held balances at the token
-  level — inherent counterparty risk with no in-contract mitigation.
-- **ERC777/677 reentrant tokens** invoked via `execute` are fully contained by
-  the transient reentrancy guard — a positive control, no action.
+Full per-finding disposition and rationale for all audit findings live in
+[`audits/REMEDIATION.md`](audits/REMEDIATION.md).
 
 ## Test Constants
 - `OWNER`: address(0xabc) - Contract owner in tests  
