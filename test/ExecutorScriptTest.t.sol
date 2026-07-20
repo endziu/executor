@@ -11,11 +11,15 @@ contract ExecutorScriptTest is Test {
 
     function setUp() public {
         deploymentScript = new ExecutorScript();
-        vm.setEnv("OWNER", vm.toString(OWNER));
     }
+
+    // `vm.setEnv` mutates process-global state and Foundry snapshots after the
+    // single `setUp` run, so each test sets OWNER itself rather than relying on
+    // a shared value that another test could have overwritten.
 
     function testRunDeploysOnBaseMainnet() public {
         vm.chainId(8453);
+        vm.setEnv("OWNER", vm.toString(OWNER));
 
         deploymentScript.run();
 
@@ -24,6 +28,7 @@ contract ExecutorScriptTest is Test {
 
     function testRunDeploysOnBaseSepolia() public {
         vm.chainId(84532);
+        vm.setEnv("OWNER", vm.toString(OWNER));
 
         deploymentScript.run();
 
@@ -32,6 +37,7 @@ contract ExecutorScriptTest is Test {
 
     function testRunRevertsOnUnsupportedChain() public {
         vm.chainId(1);
+        vm.setEnv("OWNER", vm.toString(OWNER));
         vm.expectRevert(abi.encodeWithSignature("UnsupportedChain(uint256)", 1));
 
         deploymentScript.run();
@@ -43,9 +49,5 @@ contract ExecutorScriptTest is Test {
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
 
         deploymentScript.run();
-
-        // setUp() runs once (Foundry snapshots after it), so restore the shared
-        // OWNER env here to avoid leaking address(0) into other tests.
-        vm.setEnv("OWNER", vm.toString(OWNER));
     }
 }
