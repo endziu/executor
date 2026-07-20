@@ -164,6 +164,22 @@ then rebuild and test:
 
 ## Security Considerations
 
+### Trust model (audit finding F-5)
+
+Total owner authority is intentional. The owner can call any contract with any
+calldata/value and withdraw all held ETH/ERC20; `OWNER` is immutable with no
+transfer, renounce, pause, or timelock. The consequences are, by design:
+
+- a compromised owner key means instant, total loss of everything the contract holds;
+- a lost owner key means permanent lockout — recovery is redeploy + asset migration only;
+- any assets a third party sends (via `receive()` or a token transfer) become fully
+  owner-controlled.
+
+This is the accepted trust model for a single-owner personal execution proxy: no
+third-party funds are induced or put at precondition-free risk. Operators own the
+custody decision for the `OWNER` address; this codebase takes no position on the
+owner's form.
+
 - The Executor contract can execute arbitrary calls, making owner security critical
 - All external calls are protected by reentrancy guards
 - Bundle execution validates ETH value totals match individual call values
