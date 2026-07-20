@@ -239,6 +239,32 @@ execute(token, abi.encodeCall(IERC20.transfer, (to, amount)), 0)
 This is documentation only — no behavior change. The overlapping cosmetic item
 (a phantom zero-amount `*Withdrawn` event) is tracked under F-8.
 
+### Owner-self-inflicted DoS (audit finding F-7)
+
+Four paths can be made to consume excess gas or revert, but **all four are
+reachable only inside an owner-initiated tx with owner-chosen inputs, and each
+has a recovery path.** No third party can trigger any of them, so they fall
+outside the threat model — consistent with the F-5 trust model, where the owner
+already has total authority. Accepted as-is; no code change:
+
+- **Unbounded bundle arrays** (`bundleExecute` gas DoS) — the owner sizes the
+  array; recovery is to retry with a smaller bundle.
+- **Returndata copying** in `execute` / `_bubbleRevert` from an owner-chosen
+  target — `execute` already only *hashes* returndata into its event (never
+  re-emits the raw buffer), and `bundleExecute` discards return values entirely
+  (`(bool success,)`), so the batch path is immune to returndata bombing. Blast
+  radius is the owner's own tx.
+- **Reverting `balanceOf`** blocks `withdrawERC20` — recover via the same escape
+  hatch as F-4: `execute(token, transfer(to, amount))` skips the `balanceOf`
+  read.
+- **Reverting ETH recipient** blocks `withdrawEth` — the owner picks a different
+  `to`; funds are never stuck.
+
+The two optional hardenings from the audit (a documented bundle-size cap and a
+`try/catch` around the `balanceOf` read) are **deliberately declined**: they add
+an arbitrary limit / extra complexity to paths the owner can already route
+around, with no third-party benefit.
+
 ## Test Constants
 - `OWNER`: address(0xabc) - Contract owner in tests  
 - `ALICE`: address(0x1) - Test user
