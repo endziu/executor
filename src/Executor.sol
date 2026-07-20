@@ -169,6 +169,15 @@ contract Executor {
     /**
      * @notice Withdraws ERC20 tokens from contract
      * @dev Reverts if insufficient balance or if token is not a contract
+     * @dev Uses strict `_safeTransfer` validation (OZ SafeERC20 semantics): a
+     *      `false`, short, or dirty return, or a call-revert, reverts with
+     *      `ERC20TransferFailed`. A few legitimate non-standard tokens fail this
+     *      path anyway — return-`false`-on-success (e.g. Tether Gold),
+     *      `uint96`-capped balances above 2^96-1 (e.g. UNI/COMP), and
+     *      zero-amount-revert tokens. No funds are locked: withdraw such tokens
+     *      via the owner escape hatch `execute(token,
+     *      abi.encodeCall(IERC20.transfer, (to, amount)), 0)`, which only checks
+     *      call-level success.
      * @param token ERC20 token contract address
      * @param amount Token amount in smallest unit
      * @param to Recipient address

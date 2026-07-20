@@ -219,6 +219,26 @@ owner's form.
 - Ownership is immutable — key rotation means deploying a new Executor and migrating assets
 - Withdrawal functions include balance checks before transfers
 
+### Escape hatch for non-standard tokens (audit finding F-4)
+
+`withdrawERC20` uses strict `_safeTransfer` validation (OZ SafeERC20 semantics):
+a `false`, short (<32 byte), or dirty return, or a call-revert, reverts with
+`ERC20TransferFailed`. This is intentional and kept strict — loosening it would
+silently accept genuinely failed transfers.
+
+As a side effect the dedicated withdrawal path rejects a few legitimate
+non-standard tokens: return-`false`-on-success (Tether Gold class),
+`uint96`-capped balances above 2^96-1 (UNI/COMP class), and zero-amount-revert
+tokens. **No funds are ever locked.** The owner recovers such tokens through the
+general escape hatch, which only checks call-level success:
+
+```solidity
+execute(token, abi.encodeCall(IERC20.transfer, (to, amount)), 0)
+```
+
+This is documentation only — no behavior change. The overlapping cosmetic item
+(a phantom zero-amount `*Withdrawn` event) is tracked under F-8.
+
 ## Test Constants
 - `OWNER`: address(0xabc) - Contract owner in tests  
 - `ALICE`: address(0x1) - Test user
