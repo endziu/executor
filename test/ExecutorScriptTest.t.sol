@@ -36,4 +36,16 @@ contract ExecutorScriptTest is Test {
 
         deploymentScript.run();
     }
+
+    function testRunRevertsOnZeroOwner() public {
+        vm.chainId(8453);
+        vm.setEnv("OWNER", vm.toString(address(0)));
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+
+        deploymentScript.run();
+
+        // setUp() runs once (Foundry snapshots after it), so restore the shared
+        // OWNER env here to avoid leaking address(0) into other tests.
+        vm.setEnv("OWNER", vm.toString(OWNER));
+    }
 }

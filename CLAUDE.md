@@ -96,6 +96,21 @@ The deployment script accepts only Base mainnet (chain ID `8453`) and Base
 Sepolia (chain ID `84532`). The contract uses EIP-1153 transient storage and is
 compiled for Cancun, the minimum compatible EVM hardfork.
 
+### Owner verification (audit finding F-2)
+
+`OWNER` is immutable and unrecoverable. A wrong-but-valid address (a typo, or the
+raw form where an aliased form is required) is silently accepted at deploy: every
+`onlyOwner` call then reverts `NotOwner` forever and any held assets are frozen.
+The script's post-deploy `require` only confirms the constructor stored the value
+it was given — it cannot tell whether that value is the one you intended. So:
+
+- Double-check the `OWNER` env value before broadcasting; there is no recovery.
+- Base is OP-Stack. An L2-native EOA or Safe needs no aliasing. If the owner is an
+  **L1 contract** that will control the Executor through the cross-domain
+  messenger, use the **aliased** L2 address (`L1 address + 0x1111000000000000000000000000000000001111`), not the raw L1 address.
+- The script logs the deployed address and resolved owner. Verify that owner on a
+  block explorer **before funding** the contract.
+
 ### Chain support and exclusions
 
 The Executor targets EVM-bytecode-equivalent chains only, and the deploy-script
