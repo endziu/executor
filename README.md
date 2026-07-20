@@ -10,6 +10,28 @@ The owner is set at deployment and is **immutable** — there is no ownership tr
 To rotate the owner key, deploy a new Executor and migrate assets with
 `withdrawEth` / `withdrawERC20`.
 
+## ETH accounting
+
+Outgoing call values are stated explicitly and are independent of `msg.value`:
+
+- `execute(target, data, value)` sends `value` wei to the target;
+  `bundleExecute` sends each leg its own `values[i]`.
+- Stored ETH and fresh `msg.value` are **fungible**. A call can be funded
+  entirely from the Executor's stored balance (send zero `msg.value`), from
+  fresh funding, or from both. The requested value (or checked bundle sum) must
+  not exceed the balance available at function entry, otherwise the call reverts
+  with `InsufficientBalance`.
+- **Excess funding stays deposited.** Any `msg.value` beyond what the call spends
+  remains in the Executor; it is not auto-forwarded. Sending `msg.value` with an
+  outgoing value of zero simply deposits it.
+- You can also fund the Executor directly — plain ETH transfers land in its
+  balance via `receive()`.
+
+The explicit-`value` signature is a **breaking ABI change** from the earlier
+exact-`msg.value` model. There is no in-place upgrade: deploy a new Executor and
+migrate assets with `withdrawEth` / `withdrawERC20`. Zero-value callers must pass
+an explicit `value` of `0`.
+
 ## Usage
 
 ```bash
