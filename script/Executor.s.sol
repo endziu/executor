@@ -12,12 +12,18 @@ contract ExecutorScript is Script {
 
     error UnsupportedChain(uint256 chainId);
 
+    /// @notice Entry point for `forge script`; reads the owner from the `OWNER` env var.
     function run() public {
+        run(vm.envAddress("OWNER"));
+    }
+
+    /// @dev Owner-parameterized deploy. Kept as an explicit overload so tests can
+    ///      pass the owner directly and avoid racing on the process-global `OWNER`
+    ///      env var (Foundry runs test functions concurrently).
+    function run(address owner) public {
         if (block.chainid != BASE_CHAIN_ID && block.chainid != BASE_SEPOLIA_CHAIN_ID) {
             revert UnsupportedChain(block.chainid);
         }
-
-        address owner = vm.envAddress("OWNER");
 
         vm.startBroadcast();
         executor = new Executor(owner);

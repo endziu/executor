@@ -13,41 +13,38 @@ contract ExecutorScriptTest is Test {
         deploymentScript = new ExecutorScript();
     }
 
-    // `vm.setEnv` mutates process-global state and Foundry snapshots after the
-    // single `setUp` run, so each test sets OWNER itself rather than relying on
-    // a shared value that another test could have overwritten.
+    // Tests drive the owner-parameterized `run(address)` overload directly. The
+    // env-reading `run()` wrapper is a one-line delegate; passing the owner here
+    // avoids racing on the process-global `OWNER` env var, since Foundry runs
+    // test functions concurrently.
 
     function testRunDeploysOnBaseMainnet() public {
         vm.chainId(8453);
-        vm.setEnv("OWNER", vm.toString(OWNER));
 
-        deploymentScript.run();
+        deploymentScript.run(OWNER);
 
         assertEq(deploymentScript.executor().OWNER(), OWNER);
     }
 
     function testRunDeploysOnBaseSepolia() public {
         vm.chainId(84532);
-        vm.setEnv("OWNER", vm.toString(OWNER));
 
-        deploymentScript.run();
+        deploymentScript.run(OWNER);
 
         assertEq(deploymentScript.executor().OWNER(), OWNER);
     }
 
     function testRunRevertsOnUnsupportedChain() public {
         vm.chainId(1);
-        vm.setEnv("OWNER", vm.toString(OWNER));
         vm.expectRevert(abi.encodeWithSignature("UnsupportedChain(uint256)", 1));
 
-        deploymentScript.run();
+        deploymentScript.run(OWNER);
     }
 
     function testRunRevertsOnZeroOwner() public {
         vm.chainId(8453);
-        vm.setEnv("OWNER", vm.toString(address(0)));
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
 
-        deploymentScript.run();
+        deploymentScript.run(address(0));
     }
 }
