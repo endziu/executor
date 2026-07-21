@@ -7,6 +7,11 @@ atomically (any failure reverts the whole bundle), and withdraw ETH/ERC20 balanc
 All state-changing functions are reentrancy-protected. The owner is set at
 deployment and is immutable.
 
+> **Trust model:** a single, immutable owner controls all execution and every
+> asset the contract holds. Compromise of the owner key means total loss of held
+> assets; loss of the key means permanent lockout. There is no transfer,
+> renounce, pause, or upgrade path.
+
 ## Install
 
 Requires [Foundry](https://book.getfoundry.sh/getting-started/installation):

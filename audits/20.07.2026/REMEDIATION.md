@@ -16,6 +16,15 @@ Every disposition is one of **fix** (code/config change), **document**
 (operational guidance, no behavior change), **accept** (intended design), or
 **exclude** (out of scope by policy).
 
+> **Amended 2026-07-22** (second-audit finding
+> [SF-1](../21.07.2026/AUDIT-REPORT.md)): commit `4aaed4f` trimmed the CLAUDE.md
+> deploy notes that originally held the F-2/F-3/F-5/F-6/F-7 documentation
+> deliverables. Those deliverables now live in the deploy runbook,
+> [`docs/notes/deploy-to-base.md`](../../docs/notes/deploy-to-base.md) (the
+> F-3/F-5/F-6/F-7 notes under "Operational notes from the first audit"); F-4's
+> escape-hatch documentation lives in the `withdrawERC20` NatSpec in
+> `src/Executor.sol`. The location claims below have been updated to match.
+
 ## Summary
 
 | ID | Title | Severity | Disposition | Commit |
@@ -55,7 +64,9 @@ form is required). Such a value is silently accepted and unrecoverable.
 `OWNER` for out-of-band verification, and a regression test asserts an
 `OWNER=address(0)` input reverts `ZeroAddress`. An owner-verification runbook
 (immutability/no-recovery warning, L1→L2 aliasing note for Base/OP-Stack,
-verify-on-explorer-before-funding) was added to `CLAUDE.md`. Audit rec (a)
+verify-on-explorer-before-funding) lives in
+[`docs/notes/deploy-to-base.md`](../../docs/notes/deploy-to-base.md), with a
+condensed mirror in CLAUDE.md's Deployment section. Audit rec (a)
 `owner.code.length > 0` was **deliberately declined** to stay consistent with the
 F-5 disposition (the codebase takes no position on the owner's form).
 
@@ -69,7 +80,8 @@ derivation differs.
 **Exclusion:** such chains are unsupported **by policy**, enforced by the F-1
 Base-only allow-list (default-deny). No contract or script change; the rationale
 and the "any chain added must be EVM-equivalent" rule are documented in
-`CLAUDE.md`. The existing unsupported-chain test covers the enforcement.
+`docs/notes/deploy-to-base.md` ("Operational notes from the first audit"). The
+existing unsupported-chain test covers the enforcement.
 
 ### F-4 — Strict `_safeTransfer` blocks a few non-standard tokens · **Documented**
 
@@ -79,8 +91,8 @@ few legitimate non-standard tokens (return-`false`-on-success, `uint96`-capped,
 zero-amount-revert). **No funds are ever locked.**
 
 **Docs:** kept `_safeTransfer` strict (loosening it would silently accept genuine
-failures) and documented the owner escape hatch in `withdrawERC20` NatSpec and
-`CLAUDE.md`:
+failures) and documented the owner escape hatch in the `withdrawERC20` NatSpec
+(`src/Executor.sol`):
 
 ```solidity
 execute(token, abi.encodeCall(IERC20.transfer, (to, amount)), 0)
@@ -97,16 +109,19 @@ assets; `OWNER` is immutable with no transfer/renounce/pause/timelock.
 **Accepted** as the intended trust model for a single-owner personal execution
 proxy — no third-party funds are induced or put at precondition-free risk. The
 consequences (key compromise = total loss; key loss = permanent lockout;
-third-party-sent assets become owner-controlled) are documented in `CLAUDE.md`.
-Custody of `OWNER` is left to the operator; the codebase takes no position on its
-form (Safe vs EOA) and adds no sweep mandate.
+third-party-sent assets become owner-controlled) are documented in
+`docs/notes/deploy-to-base.md` ("Operational notes from the first audit") with a
+prominent trust-model warning in the README. Custody of `OWNER` is left to the
+operator; the codebase takes no position on its form (Safe vs EOA) and adds no
+sweep mandate.
 
 ### F-6 — CREATE deploy address is chain/reorg-dependent · **Documented**
 
 Plain `CREATE` derives the address from `keccak256(deployer, nonce)`, so it is
 neither deterministic across chains nor reorg-stable.
 
-**Docs:** a `CLAUDE.md` note records the caveats and operational guidance — don't
+**Docs:** a note in `docs/notes/deploy-to-base.md` ("Operational notes from the
+first audit") records the caveats and operational guidance — don't
 pre-fund a *predicted* address; deploy, wait for finality, read the actual address
 from script output, then fund; reach for a `CREATE2` factory only if cross-chain
 determinism is ever needed (not a current requirement). No code change.
@@ -120,7 +135,8 @@ owner-initiated tx with owner-chosen inputs**, and each has a recovery path. No
 third party can trigger them.
 
 **Accepted** as outside the threat model (consistent with F-5), with the reasoning
-and recovery paths documented in `CLAUDE.md`. The two optional hardenings from the
+and recovery paths documented in `docs/notes/deploy-to-base.md` ("Operational
+notes from the first audit"). The two optional hardenings from the
 audit (a bundle-size cap and a `try/catch` around `balanceOf`) were **deliberately
 declined** — arbitrary limit / added complexity on paths the owner can already
 route around, no third-party benefit. `execute` hashing returndata into its event

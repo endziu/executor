@@ -33,7 +33,7 @@ contract ExecutorScript is Script {
         // the owner is the *intended* one — a wrong-but-valid address (typo, or
         // the raw form where an L1->L2-aliased address is required) is immutable
         // and unrecoverable. Verify the logged owner on a block explorer before
-        // funding; see the owner-verification runbook in CLAUDE.md.
+        // funding; see the owner-verification runbook in docs/notes/deploy-to-base.md.
         require(executor.OWNER() == owner, "Executor owner mismatch");
 
         console2.log("Executor deployed at:", address(executor));

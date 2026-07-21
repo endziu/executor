@@ -99,7 +99,11 @@ compiled for Cancun, the minimum compatible EVM hardfork.
 
 `OWNER` is immutable and unrecoverable — double-check the value before
 broadcasting. The script logs the deployed address and resolved owner; verify the
-owner on a block explorer before funding the contract.
+owner on a block explorer before funding the contract. An L2-native owner (EOA or
+L2 Safe) uses its raw address; an L1 *contract* controlling the Executor via the
+Base deposit path must use its L1→L2 **aliased** address
+(`L1addr + 0x1111000000000000000000000000000000001111`). Full runbook:
+`docs/notes/deploy-to-base.md`.
 
 ## Code Conventions
 

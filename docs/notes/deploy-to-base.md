@@ -25,8 +25,16 @@ on disk), and **verifying source on Basescan**.
    - Encrypted keystore: import the deployer key once with
      `cast wallet import base-deployer --interactive`, then reference `--account base-deployer`.
 5. **Owner address decided and double-checked** — this is the single most important
-   input. Confirm it is the *intended* controlling address (multisig/EOA), correct
-   checksum, and not an address requiring L1→L2 aliasing. It cannot be changed later.
+   input. Confirm it is the *intended* controlling address (multisig/EOA), with the
+   correct checksum, and in the correct aliasing form. It cannot be changed later.
+   - If the owner is an **L2** EOA or contract (the expected case), use its address
+     verbatim.
+   - If the intended controller is an **L1 contract** driving the Executor via the
+     Base bridge / an OP-Stack deposit transaction, the `msg.sender` seen on L2 is
+     the **aliased** address — set `OWNER` to
+     `L1addr + 0x1111000000000000000000000000000000001111`, or every `onlyOwner`
+     call reverts forever. (An L1 **EOA** sender is *not* aliased and appears as
+     itself.)
 6. **Gas** — deployer EOA funded with a little ETH on each target network (Sepolia ETH from a faucet; real ETH on mainnet).
 
 ## Config (verification)
@@ -125,6 +133,38 @@ Confirm the deployer prompt/Ledger screen shows the expected chain ID (8453) bef
 - Keep raw private keys out of the flow entirely; prefer Ledger/keystore as chosen.
 - CI floats Foundry to `stable`; deploy from a locally pinned, tested toolchain and
   note the `forge --version` used for reproducibility.
+
+## Operational notes from the first audit (F-3, F-5, F-6, F-7)
+
+Condensed from the [first-audit dispositions](../../audits/20.07.2026/REMEDIATION.md).
+This section is the durable home for these notes since the CLAUDE.md deploy notes
+were trimmed (commit `4aaed4f`).
+
+- **Chain exclusions (F-3).** Only Base mainnet (`8453`) and Base Sepolia
+  (`84532`) are supported, enforced default-deny by the deploy script.
+  Non-EVM-equivalent chains (e.g. zkSync Era: requires `zksolc`, different
+  `EXTCODESIZE`/`code.length` semantics, different CREATE address derivation) are
+  excluded by policy. Any chain ever added to the allow-list must be
+  EVM-equivalent.
+- **Trust model (F-5).** Total centralization by design: the immutable owner can
+  call any contract with any calldata/value and withdraw all held assets. Key
+  compromise = total loss of held assets; key loss = permanent lockout; assets
+  sent by third parties become owner-controlled. The codebase takes no position
+  on the owner's form (EOA vs Safe); key custody is the operator's
+  responsibility.
+- **Deployment address (F-6).** Plain `CREATE` derives the address from
+  `(deployer, nonce)` — neither deterministic across chains nor reorg-stable.
+  Never pre-fund a *predicted* address: deploy, wait for finality, read the
+  actual address from the script output, then fund. Reach for a `CREATE2`
+  factory only if cross-chain determinism is ever needed (not a current
+  requirement).
+- **Owner-self-inflicted DoS (F-7).** Unbounded bundle arrays, returndata
+  copying, a reverting `balanceOf` blocking `withdrawERC20`, or an ETH-rejecting
+  recipient blocking `withdrawEth` can burn gas or revert — but only inside an
+  owner-initiated tx with owner-chosen inputs, and each has a recovery path
+  (split the bundle, choose another recipient, use the `execute` escape hatch
+  for non-standard tokens). No third party can trigger them. Accepted as outside
+  the threat model.
 
 ## Verification checklist (summary)
 
