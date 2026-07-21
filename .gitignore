@@ -6,10 +6,10 @@ out/
 /broadcast/
 
 # Generated documentation (forge doc)
-docs/*
+docs/
 
 # Audits files
-audits/*
+audits/
 
 # Coverage reports
 lcov.info
