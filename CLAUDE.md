@@ -22,7 +22,7 @@ Outgoing call values are stated explicitly and are independent of `msg.value`:
 - `execute(target, data, value)` sends `value` wei; `bundleExecute` sends each leg its own `values[i]`.
 - Stored ETH and fresh `msg.value` are fungible. A call can be funded from stored balance (zero `msg.value`), fresh funding, or both. The requested value (or checked bundle sum) must not exceed the balance available at function entry, otherwise it reverts with `InsufficientBalance`.
 - Excess funding stays deposited: any `msg.value` beyond what the call spends remains in the Executor and is not auto-forwarded. Direct ETH transfers land in the balance via `receive()`.
-- The explicit-`value` signature is a breaking ABI change from the earlier exact-`msg.value` model. There is no in-place upgrade — deploy a new Executor and migrate assets with `withdrawEth` / `withdrawERC20`. Zero-value callers must pass an explicit `value` of `0`. Historical audit reports in `audits/` are annotated with this post-audit accounting change.
+- The explicit-`value` signature is a breaking ABI change from the earlier exact-`msg.value` model. There is no in-place upgrade — deploy a new Executor and migrate assets with `withdrawEth` / `withdrawERC20`. Zero-value callers must pass an explicit `value` of `0`.
 
 ### Test Structure
 The test suite is organized by functionality:
@@ -97,57 +97,9 @@ The deployment script accepts only Base mainnet (chain ID `8453`) and Base
 Sepolia (chain ID `84532`). The contract uses EIP-1153 transient storage and is
 compiled for Cancun, the minimum compatible EVM hardfork.
 
-### Owner verification (audit finding F-2)
-
-`OWNER` is immutable and unrecoverable. A wrong-but-valid address (a typo, or the
-raw form where an aliased form is required) is silently accepted at deploy: every
-`onlyOwner` call then reverts `NotOwner` forever and any held assets are frozen.
-The script's post-deploy `require` only confirms the constructor stored the value
-it was given — it cannot tell whether that value is the one you intended. So:
-
-- Double-check the `OWNER` env value before broadcasting; there is no recovery.
-- Base is OP-Stack. An L2-native EOA or Safe needs no aliasing. If the owner is an
-  **L1 contract** that will control the Executor through the cross-domain
-  messenger, use the **aliased** L2 address (`L1 address + 0x1111000000000000000000000000000000001111`), not the raw L1 address.
-- The script logs the deployed address and resolved owner. Verify that owner on a
-  block explorer **before funding** the contract.
-
-### Deployment address (audit finding F-6)
-
-The script deploys with plain `CREATE`, so the Executor's address is
-`keccak256(deployer, deployer_nonce)` — it depends only on the deploying account
-and its nonce, not on the bytecode, constructor args, or chain. Two consequences:
-
-- **Not deterministic across chains.** The same wallet at a different nonce on each
-  chain yields a different Executor address. There is no single cross-chain address.
-- **Reorg-sensitive.** Do not pre-send ETH to a *predicted* address before the
-  deploy is final: a reorg can reorder your transactions so the deploy consumes a
-  different nonce and lands elsewhere, stranding funds at an address no one controls.
-
-Guidance: don't pre-fund a predicted address — deploy first, wait for finality,
-read the actual address from the script output, then fund it. Only reach for a
-`CREATE2` factory with a fixed salt if you genuinely need the same address across
-chains (not a current requirement — deployments are Base mainnet / Sepolia only).
-
-### Chain support and exclusions
-
-The Executor targets EVM-bytecode-equivalent chains only, and the deploy-script
-allow-list (default-deny) is the enforcement point. Any chain added to that list
-must be EVM-equivalent.
-
-**zkSync Era and other non-EVM-equivalent zk chains are unsupported (audit
-finding F-3).** They are excluded by policy, not merely absent from the
-allow-list, because:
-
-- they require the `zksolc` compiler — this build produces no zkSync artifact;
-- `EXTCODESIZE` / `code.length` semantics differ (e.g. `0` for some system
-  contracts and during construction), so the `code.length == 0` guards in
-  `execute` / `bundleExecute` / `withdrawERC20` can false-positive and reject
-  legitimate targets or tokens;
-- CREATE/CREATE2 address derivation differs from the EVM formula.
-
-Supporting such a chain would require a separate `zksolc` build path and a
-re-audit of the `code.length` guards under its semantics — out of scope here.
+`OWNER` is immutable and unrecoverable — double-check the value before
+broadcasting. The script logs the deployed address and resolved owner; verify the
+owner on a block explorer before funding the contract.
 
 ## Code Conventions
 
@@ -197,58 +149,12 @@ then rebuild and test:
 
 ## Security Considerations
 
-### Trust model (audit finding F-5)
-
-Total owner authority is intentional. The owner can call any contract with any
-calldata/value and withdraw all held ETH/ERC20; `OWNER` is immutable with no
-transfer, renounce, pause, or timelock. The consequences are, by design:
-
-- a compromised owner key means instant, total loss of everything the contract holds;
-- a lost owner key means permanent lockout — recovery is redeploy + asset migration only;
-- any assets a third party sends (via `receive()` or a token transfer) become fully
-  owner-controlled.
-
-This is the accepted trust model for a single-owner personal execution proxy: no
-third-party funds are induced or put at precondition-free risk. Operators own the
-custody decision for the `OWNER` address; this codebase takes no position on the
-owner's form.
-
 - The Executor contract can execute arbitrary calls, making owner security critical
 - All external calls are protected by reentrancy guards
 - Bundle execution checks the summed `values[i]` against the available balance at entry (explicit-value model; ETH totals are independent of `msg.value`)
 - Bundle execution is atomic: any failed call or address(0) target reverts the whole bundle
 - Ownership is immutable — key rotation means deploying a new Executor and migrating assets
 - Withdrawal functions include balance checks before transfers
-
-### Non-standard token withdrawals (audit finding F-4)
-
-`withdrawERC20` keeps strict `_safeTransfer` validation (OZ SafeERC20 semantics),
-which rejects a few legitimate non-standard tokens (return-`false`-on-success,
-`uint96`-capped, zero-amount-revert). **No funds are ever locked** — withdraw
-such tokens via the escape hatch, which only checks call-level success:
-
-```solidity
-execute(token, abi.encodeCall(IERC20.transfer, (to, amount)), 0)
-```
-
-### Owner-self-inflicted DoS (audit finding F-7)
-
-The unbounded-bundle, returndata-copy, reverting-`balanceOf`, and
-reverting-ETH-recipient paths are reachable only inside an owner-initiated tx
-with owner-chosen inputs and each has a recovery path — accepted as out of the
-threat model, consistent with F-5. Practical upshot: retry a smaller bundle;
-route a stuck `withdrawERC20`/`withdrawEth` through the F-4 escape hatch or a
-different recipient.
-
-### Behavioral notes from F-8
-
-- `execute` bubbles the target's revert reason on failure; a target that reverts
-  without data falls through to `ExecutionFailed(0)`. `bundleExecute` keeps
-  `ExecutionFailed(i)` to preserve the failing leg's index.
-- `withdrawEth` / `withdrawERC20` reject `amount == 0` with `ZeroAmount`.
-
-Full per-finding disposition and rationale for all audit findings live in
-[`audits/REMEDIATION.md`](audits/REMEDIATION.md).
 
 ## Test Constants
 - `OWNER`: address(0xabc) - Contract owner in tests  

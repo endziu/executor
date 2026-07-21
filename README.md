@@ -35,13 +35,3 @@ The deployment script supports Base mainnet (chain ID `8453`) and Base Sepolia
 (chain ID `84532`) only. For the full deploy runbook — Sepolia dry-run first,
 keystore/Ledger signing, and Basescan verification — see
 [`docs/notes/deploy-to-base.md`](docs/notes/deploy-to-base.md).
-
-## Audit
-
-The contract was reviewed in a multi-agent security audit
-([`audits/20.07.2026/AUDIT-REPORT.md`](audits/20.07.2026/AUDIT-REPORT.md)). All eight consolidated
-findings (F-1 … F-8) have been remediated — fixed, documented, accepted as
-intended design, or excluded by policy — with the disposition and rationale for
-each recorded in [`audits/20.07.2026/REMEDIATION.md`](audits/20.07.2026/REMEDIATION.md). No
-high-severity issues were found; the two findings with code changes carry
-regression tests.
