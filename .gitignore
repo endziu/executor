@@ -7,9 +7,9 @@ out/
 
 # Generated documentation (forge doc)
 docs/*
-# ...but keep agent-skills config tracked
-!docs/agents/
-!docs/notes/
+
+# Audits files
+audits/*
 
 # Coverage reports
 lcov.info
