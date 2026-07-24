@@ -5,12 +5,6 @@ out/
 # Deployment broadcast logs
 /broadcast/
 
-# Generated documentation (forge doc)
-docs/
-
-# Audits files
-audits/
-
 # Coverage reports
 lcov.info
 coverage/
